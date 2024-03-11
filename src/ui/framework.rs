@@ -74,7 +74,7 @@ impl Framework {
 
     pub fn dispatch(&self, event: Event) {
         match event {
-            Event::ChangeFocus(which) => todo!(),
+            Event::ChangeFocus(which) => (),
             Event::Crossterm(e) => {
                 if let Some(container) = &self.container {
                     container.write().unwrap().dispatch(e);
