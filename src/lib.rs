@@ -45,9 +45,10 @@ pub fn run() -> std::io::Result<()> {
     let mut editorarea_cont = Container::new(&"EditorArea".to_string(), None);
     editorarea_cont.set_type(ContainerType::Father {
         subconts: [None, None],
-        vert_layout: false,
-        all_own: true,
+        vert_layout: true,
+        all_own: false,
     });
+    editorarea_cont.focus();
     let editorarea_cont = Arc::new(RwLock::new(editorarea_cont));
     if let Err(s) = framework.add_container("/WorkArea", editorarea_cont) {
         drop(framework);
@@ -57,13 +58,65 @@ pub fn run() -> std::io::Result<()> {
 
     let mut projv_cont = Container::new(&"ProjectViewer".to_string(), None);
     projv_cont.set_type(ContainerType::ProjectViewer);
-    projv_cont.focus();
+    //projv_cont.focus();
     let projv_cont = Arc::new(RwLock::new(projv_cont));
     if let Err(s) = framework.add_container("/WorkArea", projv_cont) {
         drop(framework);
         println!("{}", s);
         exit(-1);
     }
+
+    let mut editor_0 = Container::new(&"Editor0".to_string(), None);
+    editor_0.set_type(ContainerType::Editor);
+    editor_0.focus();
+    let editor_0 = Arc::new(RwLock::new(editor_0));
+    if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_0) {
+        drop(framework);
+	println!("{}", s);
+	exit(-1);
+    }
+
+    let mut editor_1 = Container::new(&"Editor1".to_string(), None);
+    editor_1.set_type(ContainerType::Editor);
+    let editor_1 = Arc::new(RwLock::new(editor_1));
+    if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_1) {
+        drop(framework);
+	println!("{}", s);
+	exit(-1);
+    }
+
+    framework.set_adjacy(
+        "/Terminal".to_string(),
+	(Some("/WorkArea/ProjectViewer".to_string()),
+	None, None, None),
+    );
+    framework.set_adjacy(
+        "/WorkArea/ProjectViewer".to_string(),
+	(
+	    None,
+	    Some("/Terminal".to_string()),
+	    None,
+	    Some("/WorkArea/Editor0".to_string()),
+	),
+    );
+    framework.set_adjacy(
+        "/WorkArea/Editor0".to_string(),
+	(
+	    Some("/WorkArea/Editor1".to_string()),
+	    Some("/Terminal".to_string()),
+	    Some("/WorkArea/ProjectViewer".to_string()),
+	    None,
+	),
+    );
+    framework.set_adjacy(
+        "/WorkArea/Editor1".to_string(),
+	(
+	    None,
+	    Some("/WorkArea/Editor0".to_string()),
+	    Some("/WorkArea/ProjectViewer".to_string()),
+	    None,
+	),
+    );
 
     let fsize = framework.get_size();
     framework.set_size(fsize.0, fsize.1);
@@ -72,7 +125,7 @@ pub fn run() -> std::io::Result<()> {
         match read()? {
             Event::Key(KeyEvent {
                 kind: KeyEventKind::Press | KeyEventKind::Repeat,
-                modifiers: KeyModifiers::CONTROL,
+                modifiers: KeyModifiers::ALT,
                 code,
                 ..
             }) => match code {

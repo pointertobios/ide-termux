@@ -5,6 +5,7 @@ use crossterm::{
 use std::{
     io::Write,
     sync::{Arc, RwLock},
+    collections::HashMap,
 };
 
 use super::{container::Container, Event};
@@ -15,6 +16,8 @@ pub struct Framework {
     container: Option<Arc<RwLock<Container>>>,
 
     focused_path: String,
+
+    path_ajac_table: HashMap<String, (Option<String>, Option<String>, Option<String>, Option<String>)>,
 }
 
 impl Framework {
@@ -27,6 +30,7 @@ impl Framework {
             height: window_size().unwrap().rows as usize,
             container: None,
             focused_path: String::new(),
+	    path_ajac_table: HashMap::new(),
         }
     }
 
@@ -70,6 +74,14 @@ impl Framework {
                 .add_container(path.as_slice(), container)?;
         }
         Ok(())
+    }
+
+    pub fn set_adjacy(
+        &mut self,
+	key: String,
+        val: (Option<String>, Option<String>, Option<String>, Option<String>),
+    ) {
+        self.path_ajac_table.insert(key, val);
     }
 
     pub fn dispatch(&self, event: Event) {

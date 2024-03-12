@@ -17,6 +17,7 @@ pub enum ContainerType {
     },
     ProjectViewer,
     Terminal,
+    Editor,
     None,
 }
 
@@ -157,16 +158,19 @@ impl Container {
                 }
             }
         } else {
+	    let t = format!("{}: [{}, {}]", self.name, self.width, self.height);
+	    let t = if t.len() > self.width {
+	        t.split_at(self.width).0.to_string()
+	    } else {
+	        t
+	    };
             queue!(
                 stdout,
                 cursor::MoveTo(
                     (father_offset.0 + self.x) as u16,
                     (father_offset.1 + self.y) as u16
                 ),
-                style::Print(&format!(
-                    "{}: [{}, {}]",
-                    &self.name, self.width, self.height
-                )),
+                style::Print(t),
                 cursor::MoveTo(
                     (father_offset.0 + self.x + self.width) as u16 - 1,
                     (father_offset.1 + self.y + self.height) as u16 - 1
@@ -282,7 +286,7 @@ impl Container {
                     if cont.read().unwrap().name == path[0] {
                         cont.write().unwrap().add_container(&path[1..], container)?;
                     } else if let Some(cont) = &subconts[1] {
-                        if cont.read().unwrap().name == path[1] {
+                        if cont.read().unwrap().name == path[0] {
                             cont.write().unwrap().add_container(&path[1..], container)?;
                         }
                     } else {
