@@ -8,7 +8,7 @@ use std::{
     collections::HashMap,
 };
 
-use super::{container::Container, Event};
+use super::{container::Container, Event, ChangeFocusEvent};
 
 pub struct Framework {
     width: usize,
@@ -41,6 +41,10 @@ impl Framework {
             container.read().unwrap().render((0, 0), &mut stdout);
         }
         stdout.flush().unwrap();
+    }
+
+    pub fn set_focused_path(&mut self, path: &str) {
+        self.focused_path = path.to_string();
     }
 
     pub fn set_size(&mut self, width: usize, height: usize) {
@@ -84,9 +88,36 @@ impl Framework {
         self.path_ajac_table.insert(key, val);
     }
 
-    pub fn dispatch(&self, event: Event) {
+    pub fn dispatch(&mut self, event: Event) {
         match event {
-            Event::ChangeFocus(which) => (),
+            Event::ChangeFocus(which) => match which {
+	        ChangeFocusEvent::Up => {
+		    if let Some(container) = &self.container {
+		        let bpath = self.focused_path.split("/")
+			    .filter(|x| !x.is_empty())
+			    .collect::<Vec<&str>>();
+			let new_path = if let Some(path) =
+			    self.path_ajac_table.get(&self.focused_path)
+			{
+			    let rpath = &path.0;
+			    if let Some(rrpath) = rpath {
+			        let rpath = rrpath.split("/")
+			            .filter(|x| !x.is_empty())
+				    .collect::<Vec<&str>>();
+				container.disfocus_path(&bpath);
+		                container.focus_path(&rpath);
+			        rrpath.to_string()
+			    } else {
+			        self.focused_path.clone()
+			    }
+			} else {
+			    self.focused_path.clone()
+			};
+			self.focused_path = new_path;
+		    }
+		}
+		_ => (),
+	    },
             Event::Crossterm(e) => {
                 if let Some(container) = &self.container {
                     container.write().unwrap().dispatch(e);
