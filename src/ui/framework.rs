@@ -104,40 +104,40 @@ impl Framework {
     pub fn dispatch(&mut self, event: Event) {
         match event {
             Event::ChangeFocus(which) => {
-	        match which {
-                ChangeFocusEvent::Up => {
-                    if let Some(container) = &self.container {
-                        let bpath = self
-                            .focused_path
-                            .split("/")
-                            .filter(|x| !x.is_empty())
-                            .collect::<Vec<&str>>();
-                        let new_path =
-                            if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
-                                let rpath = &path.0;
-                                if let Some(rrpath) = rpath {
-                                    let rpath = rrpath
-                                        .split("/")
-                                        .filter(|x| !x.is_empty())
-                                        .collect::<Vec<&str>>();
-                                    container.write().unwrap().disfocus_path(&bpath);
-                                    container.write().unwrap().focus_path(&rpath);
-                                    rrpath.to_string()
+                match which {
+                    ChangeFocusEvent::Up => {
+                        if let Some(container) = &self.container {
+                            let bpath = self
+                                .focused_path
+                                .split("/")
+                                .filter(|x| !x.is_empty())
+                                .collect::<Vec<&str>>();
+                            let new_path =
+                                if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
+                                    let rpath = &path.0;
+                                    if let Some(rrpath) = rpath {
+                                        let rpath = rrpath
+                                            .split("/")
+                                            .filter(|x| !x.is_empty())
+                                            .collect::<Vec<&str>>();
+                                        container.write().unwrap().disfocus_path(&bpath);
+                                        container.write().unwrap().focus_path(&rpath);
+                                        rrpath.to_string()
+                                    } else {
+                                        self.focused_path.clone()
+                                    }
                                 } else {
                                     self.focused_path.clone()
-                                }
-                            } else {
-                                self.focused_path.clone()
-                            };
-                        self.focused_path = new_path;
+                                };
+                            self.focused_path = new_path;
+                        }
                     }
+                    _ => (),
                 }
-                _ => (),
+                if let Some(container) = &self.container {
+                    container.write().unwrap().set_size(self.width, self.height);
                 }
-		if let Some(container) = &self.container {
-		    container.write().unwrap().set_size(self.width, self.height);
-		}
-	    }
+            }
             Event::Crossterm(e) => {
                 if let Some(container) = &self.container {
                     container.write().unwrap().dispatch(e);

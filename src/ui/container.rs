@@ -1,8 +1,5 @@
 use std::{
-    cell::RefCell,
-    io::Stdout,
-    rc::Rc,
-    sync::{Arc, RwLock},
+    cell::RefCell, io::Stdout, rc::Rc, sync::{Arc, RwLock}
 };
 
 use crossterm::{cursor, event::Event, queue, style};
@@ -138,42 +135,42 @@ impl Container {
 
     pub fn focus_path(&mut self, path: &[&str]) {
         if path.len() == 0 {
-	    return;
-	}
+            return;
+        }
         self.focused = true;
         if let ContainerType::Father { subconts, .. } = &self.cont_type {
-	    if let Some(down_cont) = &subconts[1] {
-	        if down_cont.read().unwrap().name == path[0] {
-		    down_cont.write().unwrap().focus_path(&path[1..]);
-		} else {
-		    if let Some(up_cont) = &subconts[0] {
-		        if up_cont.read().unwrap().name == path[0] {
-			    up_cont.write().unwrap().focus_path(&path[1..]);
-			}
-		    }
-		}
-	    }
-	}
+            if let Some(down_cont) = &subconts[1] {
+                if down_cont.read().unwrap().name == path[0] {
+                    down_cont.write().unwrap().focus_path(&path[1..]);
+                } else {
+                    if let Some(up_cont) = &subconts[0] {
+                        if up_cont.read().unwrap().name == path[0] {
+                            up_cont.write().unwrap().focus_path(&path[1..]);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn disfocus_path(&mut self, path: &[&str]) {
         if path.len() == 0 {
-	    return;
-	}
+            return;
+        }
         self.focused = false;
         if let ContainerType::Father { subconts, .. } = &self.cont_type {
-	    if let Some(down_cont) = &subconts[1] {
-	        if down_cont.read().unwrap().name == path[0] {
-		    down_cont.write().unwrap().focus_path(&path[1..]);
-		} else {
-		    if let Some(up_cont) = &subconts[0] {
-		        if up_cont.read().unwrap().name == path[0] {
-			    up_cont.write().unwrap().focus_path(&path[1..]);
-			}
-		    }
-		}
-	    }
-	}
+            if let Some(down_cont) = &subconts[1] {
+                if down_cont.read().unwrap().name == path[0] {
+                    down_cont.write().unwrap().disfocus_path(&path[1..]);
+                } else {
+                    if let Some(up_cont) = &subconts[0] {
+                        if up_cont.read().unwrap().name == path[0] {
+                            up_cont.write().unwrap().disfocus_path(&path[1..]);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn is_focused(&self) -> bool {

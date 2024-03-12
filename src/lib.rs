@@ -19,7 +19,7 @@ pub fn run() -> std::io::Result<()> {
     let root = Arc::new(RwLock::new(root));
     framework.set_container(Arc::clone(&root));
     //framework.set_focused_path("/WorkArea/ProjectViewer");
-    framework.set_focused_path("/WorkArea/Terminal");
+    framework.set_focused_path("/Terminal");
 
     let mut terminal_cont = Container::new(&"Terminal".to_string(), None);
     terminal_cont.set_type(ContainerType::Terminal);
