@@ -73,8 +73,8 @@ pub fn run() -> std::io::Result<()> {
     let editor_0 = Arc::new(RwLock::new(editor_0));
     if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_0) {
         drop(framework);
-	println!("{}", s);
-	exit(-1);
+        println!("{}", s);
+        exit(-1);
     }
 
     let mut editor_1 = Container::new(&"Editor1".to_string(), None);
@@ -82,41 +82,45 @@ pub fn run() -> std::io::Result<()> {
     let editor_1 = Arc::new(RwLock::new(editor_1));
     if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_1) {
         drop(framework);
-	println!("{}", s);
-	exit(-1);
+        println!("{}", s);
+        exit(-1);
     }
 
     framework.set_adjacy(
         "/Terminal".to_string(),
-	(Some("/WorkArea/ProjectViewer".to_string()),
-	None, None, None),
+        (
+            Some("/WorkArea/ProjectViewer".to_string()),
+            None,
+            None,
+            None,
+        ),
     );
     framework.set_adjacy(
         "/WorkArea/ProjectViewer".to_string(),
-	(
-	    None,
-	    Some("/Terminal".to_string()),
-	    None,
-	    Some("/WorkArea/EditorArea/Editor0".to_string()),
-	),
+        (
+            None,
+            Some("/Terminal".to_string()),
+            None,
+            Some("/WorkArea/EditorArea/Editor0".to_string()),
+        ),
     );
     framework.set_adjacy(
         "/WorkArea/EditorArea/Editor0".to_string(),
-	(
-	    Some("/WorkArea/EditorArea/Editor1".to_string()),
-	    Some("/Terminal".to_string()),
-	    Some("/WorkArea/ProjectViewer".to_string()),
-	    None,
-	),
+        (
+            Some("/WorkArea/EditorArea/Editor1".to_string()),
+            Some("/Terminal".to_string()),
+            Some("/WorkArea/ProjectViewer".to_string()),
+            None,
+        ),
     );
     framework.set_adjacy(
         "/WorkArea/EditorArea/Editor1".to_string(),
-	(
-	    None,
-	    Some("/WorkArea/EditorArea/Editor0".to_string()),
-	    Some("/WorkArea/ProjectViewer".to_string()),
-	    None,
-	),
+        (
+            None,
+            Some("/WorkArea/EditorArea/Editor0".to_string()),
+            Some("/WorkArea/ProjectViewer".to_string()),
+            None,
+        ),
     );
 
     let fsize = framework.get_size();

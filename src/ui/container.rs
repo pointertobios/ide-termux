@@ -158,12 +158,18 @@ impl Container {
                 }
             }
         } else {
-	    let t = format!("{}: [{}, {}]", self.name, self.width, self.height);
-	    let t = if t.len() > self.width {
-	        t.split_at(self.width).0.to_string()
-	    } else {
-	        t
-	    };
+            let t = format!(
+                "{}: [{}, {}] {}",
+                self.name,
+                self.width,
+                self.height,
+                if self.focused { "focused" } else { "unfocused" }
+            );
+            let t = if t.len() > self.width {
+                t.split_at(self.width).0.to_string()
+            } else {
+                t
+            };
             queue!(
                 stdout,
                 cursor::MoveTo(

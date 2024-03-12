@@ -3,12 +3,12 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType},
 };
 use std::{
+    collections::HashMap,
     io::Write,
     sync::{Arc, RwLock},
-    collections::HashMap,
 };
 
-use super::{container::Container, Event, ChangeFocusEvent};
+use super::{container::Container, ChangeFocusEvent, Event};
 
 pub struct Framework {
     width: usize,
@@ -17,7 +17,15 @@ pub struct Framework {
 
     focused_path: String,
 
-    path_ajac_table: HashMap<String, (Option<String>, Option<String>, Option<String>, Option<String>)>,
+    path_ajac_table: HashMap<
+        String,
+        (
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >,
 }
 
 impl Framework {
@@ -30,7 +38,7 @@ impl Framework {
             height: window_size().unwrap().rows as usize,
             container: None,
             focused_path: String::new(),
-	    path_ajac_table: HashMap::new(),
+            path_ajac_table: HashMap::new(),
         }
     }
 
@@ -82,8 +90,13 @@ impl Framework {
 
     pub fn set_adjacy(
         &mut self,
-	key: String,
-        val: (Option<String>, Option<String>, Option<String>, Option<String>),
+        key: String,
+        val: (
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
     ) {
         self.path_ajac_table.insert(key, val);
     }
@@ -91,33 +104,35 @@ impl Framework {
     pub fn dispatch(&mut self, event: Event) {
         match event {
             Event::ChangeFocus(which) => match which {
-	        ChangeFocusEvent::Up => {
-		    if let Some(container) = &self.container {
-		        let bpath = self.focused_path.split("/")
-			    .filter(|x| !x.is_empty())
-			    .collect::<Vec<&str>>();
-			let new_path = if let Some(path) =
-			    self.path_ajac_table.get(&self.focused_path)
-			{
-			    let rpath = &path.0;
-			    if let Some(rrpath) = rpath {
-			        let rpath = rrpath.split("/")
-			            .filter(|x| !x.is_empty())
-				    .collect::<Vec<&str>>();
-				container.disfocus_path(&bpath);
-		                container.focus_path(&rpath);
-			        rrpath.to_string()
-			    } else {
-			        self.focused_path.clone()
-			    }
-			} else {
-			    self.focused_path.clone()
-			};
-			self.focused_path = new_path;
-		    }
-		}
-		_ => (),
-	    },
+                ChangeFocusEvent::Up => {
+                    if let Some(container) = &self.container {
+                        let bpath = self
+                            .focused_path
+                            .split("/")
+                            .filter(|x| !x.is_empty())
+                            .collect::<Vec<&str>>();
+                        let new_path =
+                            if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
+                                let rpath = &path.0;
+                                if let Some(rrpath) = rpath {
+                                    let rpath = rrpath
+                                        .split("/")
+                                        .filter(|x| !x.is_empty())
+                                        .collect::<Vec<&str>>();
+                                    container.write().unwrap().disfocus_path(&bpath);
+                                    container.write().unwrap().focus_path(&rpath);
+                                    rrpath.to_string()
+                                } else {
+                                    self.focused_path.clone()
+                                }
+                            } else {
+                                self.focused_path.clone()
+                            };
+                        self.focused_path = new_path;
+                    }
+                }
+                _ => (),
+            },
             Event::Crossterm(e) => {
                 if let Some(container) = &self.container {
                     container.write().unwrap().dispatch(e);
