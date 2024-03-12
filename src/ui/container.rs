@@ -136,6 +136,46 @@ impl Container {
         self.focused = false;
     }
 
+    pub fn focus_path(&mut self, path: &[&str]) {
+        if path.len() == 0 {
+	    return;
+	}
+        self.focused = true;
+        if let ContainerType::Father { subconts, .. } = &self.cont_type {
+	    if let Some(down_cont) = &subconts[1] {
+	        if down_cont.read().unwrap().name == path[0] {
+		    down_cont.write().unwrap().focus_path(&path[1..]);
+		} else {
+		    if let Some(up_cont) = &subconts[0] {
+		        if up_cont.read().unwrap().name == path[0] {
+			    up_cont.write().unwrap().focus_path(&path[1..]);
+			}
+		    }
+		}
+	    }
+	}
+    }
+
+    pub fn disfocus_path(&mut self, path: &[&str]) {
+        if path.len() == 0 {
+	    return;
+	}
+        self.focused = false;
+        if let ContainerType::Father { subconts, .. } = &self.cont_type {
+	    if let Some(down_cont) = &subconts[1] {
+	        if down_cont.read().unwrap().name == path[0] {
+		    down_cont.write().unwrap().focus_path(&path[1..]);
+		} else {
+		    if let Some(up_cont) = &subconts[0] {
+		        if up_cont.read().unwrap().name == path[0] {
+			    up_cont.write().unwrap().focus_path(&path[1..]);
+			}
+		    }
+		}
+	    }
+	}
+    }
+
     pub fn is_focused(&self) -> bool {
         self.focused
     }

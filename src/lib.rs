@@ -18,10 +18,12 @@ pub fn run() -> std::io::Result<()> {
     let root = Container::new_root(framework.get_size().0, framework.get_size().1, None);
     let root = Arc::new(RwLock::new(root));
     framework.set_container(Arc::clone(&root));
-    framework.set_focused_path("/WorkArea/ProjectViewer");
+    //framework.set_focused_path("/WorkArea/ProjectViewer");
+    framework.set_focused_path("/WorkArea/Terminal");
 
     let mut terminal_cont = Container::new(&"Terminal".to_string(), None);
     terminal_cont.set_type(ContainerType::Terminal);
+    terminal_cont.focus();
     let terminal_cont = Arc::new(RwLock::new(terminal_cont));
     if let Err(s) = framework.add_container("/", terminal_cont) {
         drop(framework);
@@ -35,7 +37,7 @@ pub fn run() -> std::io::Result<()> {
         vert_layout: false,
         all_own: true,
     });
-    workarea_cont.focus();
+    //workarea_cont.focus();
     let workarea_cont = Arc::new(RwLock::new(workarea_cont));
     if let Err(s) = framework.add_container("/", workarea_cont) {
         drop(framework);
@@ -59,7 +61,7 @@ pub fn run() -> std::io::Result<()> {
 
     let mut projv_cont = Container::new(&"ProjectViewer".to_string(), None);
     projv_cont.set_type(ContainerType::ProjectViewer);
-    projv_cont.focus();
+    //projv_cont.focus();
     let projv_cont = Arc::new(RwLock::new(projv_cont));
     if let Err(s) = framework.add_container("/WorkArea", projv_cont) {
         drop(framework);

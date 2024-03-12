@@ -31,7 +31,7 @@ pub struct Framework {
 impl Framework {
     pub fn new() -> Self {
         enable_raw_mode().unwrap();
-        queue!(std::io::stdout(), cursor::Hide).unwrap();
+        queue!(std::io::stdout(), Clear(ClearType::All), cursor::Hide).unwrap();
         std::io::stdout().flush().unwrap();
         Framework {
             width: window_size().unwrap().columns as usize,
@@ -44,7 +44,7 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        queue!(stdout, Clear(ClearType::All)).unwrap();
+        //queue!(stdout, Clear(ClearType::All)).unwrap();
         if let Some(container) = &self.container {
             container.read().unwrap().render((0, 0), &mut stdout);
         }
@@ -103,7 +103,8 @@ impl Framework {
 
     pub fn dispatch(&mut self, event: Event) {
         match event {
-            Event::ChangeFocus(which) => match which {
+            Event::ChangeFocus(which) => {
+	        match which {
                 ChangeFocusEvent::Up => {
                     if let Some(container) = &self.container {
                         let bpath = self
@@ -132,7 +133,11 @@ impl Framework {
                     }
                 }
                 _ => (),
-            },
+                }
+		if let Some(container) = &self.container {
+		    container.write().unwrap().set_size(self.width, self.height);
+		}
+	    }
             Event::Crossterm(e) => {
                 if let Some(container) = &self.container {
                     container.write().unwrap().dispatch(e);
