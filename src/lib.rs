@@ -96,23 +96,23 @@ pub fn run() -> std::io::Result<()> {
 	    None,
 	    Some("/Terminal".to_string()),
 	    None,
-	    Some("/WorkArea/Editor0".to_string()),
+	    Some("/WorkArea/EditorArea/Editor0".to_string()),
 	),
     );
     framework.set_adjacy(
-        "/WorkArea/Editor0".to_string(),
+        "/WorkArea/EditorArea/Editor0".to_string(),
 	(
-	    Some("/WorkArea/Editor1".to_string()),
+	    Some("/WorkArea/EditorArea/Editor1".to_string()),
 	    Some("/Terminal".to_string()),
 	    Some("/WorkArea/ProjectViewer".to_string()),
 	    None,
 	),
     );
     framework.set_adjacy(
-        "/WorkArea/Editor1".to_string(),
+        "/WorkArea/EditorArea/Editor1".to_string(),
 	(
 	    None,
-	    Some("/WorkArea/Editor0".to_string()),
+	    Some("/WorkArea/EditorArea/Editor0".to_string()),
 	    Some("/WorkArea/ProjectViewer".to_string()),
 	    None,
 	),
