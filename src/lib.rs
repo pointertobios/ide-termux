@@ -131,7 +131,7 @@ pub fn run() -> std::io::Result<()> {
                 kind: KeyEventKind::Press | KeyEventKind::Repeat,
                 modifiers,
                 code,
-                ..
+                state,
             }) => {
                 if modifiers.contains(KeyModifiers::CONTROL)
                     && modifiers.contains(KeyModifiers::ALT)
@@ -154,10 +154,17 @@ pub fn run() -> std::io::Result<()> {
                         }
                         _ => (),
                     }
+                } else {
+                    framework.dispatch(ui::Event::Crossterm(Event::Key(KeyEvent {
+                        code,
+                        modifiers,
+                        kind: KeyEventKind::Press,
+                        state,
+                    })));
                 }
             }
             Event::Resize(width, height) => framework.set_size(width as usize, height as usize),
-            _ => (),
+            event => framework.dispatch(ui::Event::Crossterm(event)),
         }
     }
     Ok(())

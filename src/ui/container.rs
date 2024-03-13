@@ -1,9 +1,12 @@
 use crate::components::project_viewer::ProjectViewer;
-use crossterm::{cursor, event::Event, queue, style::{self, ResetColor}};
+use crossterm::{
+    cursor,
+    event::Event,
+    queue,
+    style::{self, ResetColor},
+};
 use std::{
-    cell::RefCell,
     io::Stdout,
-    rc::Rc,
     sync::{Arc, RwLock},
 };
 
@@ -30,11 +33,11 @@ pub struct Container {
     focused: bool,
     cont_type: ContainerType,
 
-    eve_handler: Option<Rc<RefCell<dyn FnMut(Event)>>>,
+    eve_handler: Option<Box<dyn FnMut(Event)>>,
 }
 
 impl Container {
-    pub fn new(name: &'static str, f: Option<Rc<RefCell<dyn FnMut(Event)>>>) -> Self {
+    pub fn new(name: &'static str, f: Option<Box<dyn FnMut(Event)>>) -> Self {
         Container {
             name: name.to_string(),
             x: 0,
@@ -47,7 +50,7 @@ impl Container {
         }
     }
 
-    pub fn new_root(width: usize, height: usize, f: Option<Rc<RefCell<dyn FnMut(Event)>>>) -> Self {
+    pub fn new_root(width: usize, height: usize, f: Option<Box<dyn FnMut(Event)>>) -> Self {
         Container {
             name: "RootContainer".to_string(),
             x: 0,
@@ -116,9 +119,21 @@ impl Container {
         }
     }
 
+    pub fn set_handler(&mut self, f: Box<dyn FnMut(Event)>) {
+        self.eve_handler = Some(f);
+    }
+
     pub fn dispatch(&mut self, event: Event) {
-        if let Some(handler) = &self.eve_handler {
-            handler.borrow_mut()(event);
+        if let ContainerType::Father { subconts, .. } = &self.cont_type {
+            for cont in subconts {
+                if let Some(cont) = cont {
+                    cont.write().unwrap().dispatch(event.clone());
+                }
+            }
+        } else if self.focused {
+            if let Some(handler) = &mut self.eve_handler {
+                (*handler)(event);
+            }
         }
     }
 
@@ -173,7 +188,10 @@ impl Container {
                 }
             }
             ContainerType::ProjectViewer(proj_viewer) => {
-                proj_viewer.read().unwrap().render(father_offset, (self.width, self.height), stdout)
+                proj_viewer
+                    .read()
+                    .unwrap()
+                    .render(father_offset, (self.width, self.height), stdout)
             }
             _ => {
                 let t = format!(

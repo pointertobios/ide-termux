@@ -44,7 +44,7 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        queue!(stdout, style::Print("\x1b[2J".to_string()), Clear(ClearType::All)).unwrap();
+        queue!(stdout, Clear(ClearType::All)).unwrap();
         if let Some(container) = &self.container {
             container.read().unwrap().render((0, 0), &mut stdout);
         }
@@ -102,6 +102,7 @@ impl Framework {
     }
 
     pub fn dispatch(&mut self, event: Event) {
+        println!(".");
         match event {
             Event::ChangeFocus(which) => {
                 match which {
