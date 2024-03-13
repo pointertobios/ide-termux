@@ -13,5 +13,4 @@ pub enum ChangeFocusEvent {
     Down,
     Left,
     Right,
-    None,
 }

@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor, queue,
+    cursor, queue, style,
     terminal::{disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType},
 };
 use std::{
@@ -44,7 +44,7 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        queue!(stdout, Clear(ClearType::All)).unwrap();
+        queue!(stdout, style::Print("\x1b[2J".to_string()), Clear(ClearType::All)).unwrap();
         if let Some(container) = &self.container {
             container.read().unwrap().render((0, 0), &mut stdout);
         }
@@ -213,7 +213,6 @@ impl Framework {
                             self.focused_path = new_path;
                         }
                     }
-                    _ => (),
                 }
                 if let Some(container) = &self.container {
                     container.write().unwrap().set_size(self.width, self.height);

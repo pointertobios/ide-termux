@@ -1,11 +1,11 @@
+use crate::components::project_viewer::ProjectViewer;
+use crossterm::{cursor, event::Event, queue, style::{self, ResetColor}};
 use std::{
     cell::RefCell,
     io::Stdout,
     rc::Rc,
     sync::{Arc, RwLock},
 };
-
-use crossterm::{cursor, event::Event, queue, style};
 
 pub enum ContainerType {
     Father {
@@ -15,7 +15,7 @@ pub enum ContainerType {
         /// 独占
         all_own: bool,
     },
-    ProjectViewer,
+    ProjectViewer(Arc<RwLock<ProjectViewer>>),
     Terminal,
     Editor,
     None,
@@ -161,41 +161,48 @@ impl Container {
     }
 
     pub fn render(&self, father_offset: (usize, usize), stdout: &mut Stdout) {
-        if let ContainerType::Father { subconts, .. } = &self.cont_type {
-            for cont in subconts {
-                if let Some(cont) = cont {
-                    cont.read()
-                        .unwrap()
-                        .render((father_offset.0 + self.x, father_offset.1 + self.y), stdout);
+        queue!(stdout, ResetColor).unwrap();
+        match &self.cont_type {
+            ContainerType::Father { subconts, .. } => {
+                for cont in subconts {
+                    if let Some(cont) = cont {
+                        cont.read()
+                            .unwrap()
+                            .render((father_offset.0 + self.x, father_offset.1 + self.y), stdout);
+                    }
                 }
             }
-        } else {
-            let t = format!(
-                "{}: [{}, {}] {}",
-                self.name,
-                self.width,
-                self.height,
-                if self.focused { "focused" } else { "unfocused" }
-            );
-            let t = if t.len() > self.width {
-                t.split_at(self.width).0.to_string()
-            } else {
-                t
-            };
-            queue!(
-                stdout,
-                cursor::MoveTo(
-                    (father_offset.0 + self.x) as u16,
-                    (father_offset.1 + self.y) as u16
-                ),
-                style::Print(t),
-                cursor::MoveTo(
-                    (father_offset.0 + self.x + self.width) as u16 - 1,
-                    (father_offset.1 + self.y + self.height) as u16 - 1
-                ),
-                style::Print("+"),
-            )
-            .unwrap();
+            ContainerType::ProjectViewer(proj_viewer) => {
+                proj_viewer.read().unwrap().render(father_offset, (self.width, self.height), stdout)
+            }
+            _ => {
+                let t = format!(
+                    "{}: [{}, {}] {}",
+                    self.name,
+                    self.width,
+                    self.height,
+                    if self.focused { "focused" } else { "unfocused" }
+                );
+                let t = if t.len() > self.width {
+                    t.split_at(self.width).0.to_string()
+                } else {
+                    t
+                };
+                queue!(
+                    stdout,
+                    cursor::MoveTo(
+                        (father_offset.0 + self.x) as u16,
+                        (father_offset.1 + self.y) as u16
+                    ),
+                    style::Print(t),
+                    cursor::MoveTo(
+                        (father_offset.0 + self.x + self.width) as u16 - 1,
+                        (father_offset.1 + self.y + self.height) as u16 - 1
+                    ),
+                    style::Print("+"),
+                )
+                .unwrap();
+            }
         }
     }
 
