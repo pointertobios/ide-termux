@@ -1,7 +1,7 @@
 use crate::{components::component::Component, Container, ContainerType, Framework};
 use crossterm::{
     cursor,
-    event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers},
     queue,
     style::{self, Color},
 };
@@ -39,19 +39,50 @@ impl ProjectViewer {
             .container
             .write()
             .unwrap()
-            .set_handler(Box::new(move |event| match event {
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press | KeyEventKind::Repeat,
-                    state,
-                }) => {}
-                _ => (),
+            .set_handler(Box::new(move |event, contsize| {
+                let line = res_ref.read().unwrap().at_line;
+                match event {
+                    Event::Key(KeyEvent {
+                        code,
+                        modifiers: KeyModifiers::NONE,
+                        kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                        state: KeyEventState::NONE,
+                    }) => match code {
+                        KeyCode::Up => {
+                            if line > 0 {
+                                res_ref.write().unwrap().at_line -= 1;
+                            }
+                        }
+                        KeyCode::Down => {
+                            if line < contsize.1 - 2 {
+                                res_ref.write().unwrap().at_line += 1;
+                            }
+                        }
+                        _ => (),
+                    },
+                    _ => (),
+                }
             }));
         res
     }
+}
 
-    pub fn render(&self, offset: (usize, usize), size: (usize, usize), stdout: &mut Stdout) {
+impl Component for ProjectViewer {
+    fn bind_to(
+        &mut self,
+        framework: &mut Framework,
+    ) -> Result<(), Box<dyn FnOnce(Framework) -> !>> {
+        match framework.add_container("/WorkArea", Arc::clone(&self.container)) {
+            Ok(()) => Ok(()),
+            Err(s) => Err(Box::new(move |fw| {
+                drop(fw);
+                println!("{}", s);
+                exit(-1)
+            })),
+        }
+    }
+
+    fn render(&self, offset: (usize, usize), size: (usize, usize), stdout: &mut Stdout) {
         queue!(stdout, cursor::MoveTo(offset.0 as u16, offset.1 as u16)).unwrap();
         if size.0 == 1 {
             queue!(
@@ -132,22 +163,6 @@ impl ProjectViewer {
                 queue!(stdout, cursor::MoveToColumn(0), cursor::MoveToNextLine(1)).unwrap();
                 light_line = !light_line;
             }
-        }
-    }
-}
-
-impl Component for ProjectViewer {
-    fn bind_to(
-        &mut self,
-        framework: &mut Framework,
-    ) -> Result<(), Box<dyn FnOnce(Framework) -> !>> {
-        match framework.add_container("/WorkArea", Arc::clone(&self.container)) {
-            Ok(()) => Ok(()),
-            Err(s) => Err(Box::new(move |fw| {
-                drop(fw);
-                println!("{}", s);
-                exit(-1)
-            })),
         }
     }
 }

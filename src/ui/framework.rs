@@ -1,5 +1,6 @@
 use crossterm::{
-    cursor, queue, style,
+    cursor, queue,
+    style::ResetColor,
     terminal::{disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType},
 };
 use std::{
@@ -33,18 +34,23 @@ impl Framework {
         enable_raw_mode().unwrap();
         queue!(std::io::stdout(), Clear(ClearType::All), cursor::Hide).unwrap();
         std::io::stdout().flush().unwrap();
-        Framework {
+        let mut framework = Framework {
             width: window_size().unwrap().columns as usize,
             height: window_size().unwrap().rows as usize,
             container: None,
             focused_path: String::new(),
             path_ajac_table: HashMap::new(),
-        }
+        };
+        let root = Container::new_root(framework.get_size().0, framework.get_size().1, None);
+        let root = Arc::new(RwLock::new(root));
+        framework.set_container(Arc::clone(&root));
+        framework.set_focused_path("/WorkArea/ProjectViewer");
+        framework
     }
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        queue!(stdout, Clear(ClearType::All)).unwrap();
+        queue!(stdout, Clear(ClearType::All), ResetColor).unwrap();
         if let Some(container) = &self.container {
             container.read().unwrap().render((0, 0), &mut stdout);
         }
@@ -102,7 +108,6 @@ impl Framework {
     }
 
     pub fn dispatch(&mut self, event: Event) {
-        println!(".");
         match event {
             Event::ChangeFocus(which) => {
                 match which {

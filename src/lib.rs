@@ -8,7 +8,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use components::{component::Component, project_viewer::ProjectViewer};
+use components::{component::Component, project_viewer::ProjectViewer, terminal::Terminal};
 use ui::{
     container::{Container, ContainerType},
     framework::Framework,
@@ -19,20 +19,10 @@ use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 
 pub fn run() -> std::io::Result<()> {
     let mut framework = Framework::new();
-    let root = Container::new_root(framework.get_size().0, framework.get_size().1, None);
-    let root = Arc::new(RwLock::new(root));
-    framework.set_container(Arc::clone(&root));
-    framework.set_focused_path("/WorkArea/ProjectViewer");
-    //framework.set_focused_path("/Terminal");
 
-    let mut terminal_cont = Container::new("Terminal", None);
-    terminal_cont.set_type(ContainerType::Terminal);
-    //terminal_cont.focus();
-    let terminal_cont = Arc::new(RwLock::new(terminal_cont));
-    if let Err(s) = framework.add_container("/", terminal_cont) {
-        drop(framework);
-        println!("{}", s);
-        exit(-1);
+    let terminal = Terminal::new();
+    if let Err(f) = terminal.write().unwrap().bind_to(&mut framework) {
+        f(framework);
     }
 
     let mut workarea_cont = Container::new("WorkArea", None);

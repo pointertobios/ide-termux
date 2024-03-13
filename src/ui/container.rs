@@ -1,10 +1,5 @@
-use crate::components::project_viewer::ProjectViewer;
-use crossterm::{
-    cursor,
-    event::Event,
-    queue,
-    style::{self, ResetColor},
-};
+use crate::components::{component::Component, project_viewer::ProjectViewer, terminal::Terminal};
+use crossterm::{cursor, event::Event, queue, style};
 use std::{
     io::Stdout,
     sync::{Arc, RwLock},
@@ -19,10 +14,13 @@ pub enum ContainerType {
         all_own: bool,
     },
     ProjectViewer(Arc<RwLock<ProjectViewer>>),
-    Terminal,
+    Terminal(Arc<RwLock<Terminal>>),
     Editor,
     None,
 }
+
+/// 这是一个闭包，闭包中不可以对带锁的Container对象解锁
+type EventHandler = dyn FnMut(Event, (usize, usize));
 
 pub struct Container {
     name: String,
@@ -33,11 +31,11 @@ pub struct Container {
     focused: bool,
     cont_type: ContainerType,
 
-    eve_handler: Option<Box<dyn FnMut(Event)>>,
+    eve_handler: Option<Box<EventHandler>>,
 }
 
 impl Container {
-    pub fn new(name: &'static str, f: Option<Box<dyn FnMut(Event)>>) -> Self {
+    pub fn new(name: &'static str, f: Option<Box<EventHandler>>) -> Self {
         Container {
             name: name.to_string(),
             x: 0,
@@ -50,7 +48,7 @@ impl Container {
         }
     }
 
-    pub fn new_root(width: usize, height: usize, f: Option<Box<dyn FnMut(Event)>>) -> Self {
+    pub fn new_root(width: usize, height: usize, f: Option<Box<EventHandler>>) -> Self {
         Container {
             name: "RootContainer".to_string(),
             x: 0,
@@ -67,64 +65,70 @@ impl Container {
         }
     }
 
-    pub fn get_by_path(&self, path: &[&str]) -> Result<Arc<RwLock<Container>>, String> {
-        if path.len() == 1 {
-            if let ContainerType::Father { subconts, .. } = &self.cont_type {
-                if let Some(down_cont) = &subconts[1] {
-                    if down_cont.read().unwrap().name == path[0] {
-                        Ok(Arc::clone(down_cont))
-                    } else if let Some(up_cont) = &subconts[0] {
-                        if up_cont.read().unwrap().name == path[0] {
-                            Ok(Arc::clone(up_cont))
-                        } else {
-                            Err(format!("No container names {}.", path[0]))
-                        }
-                    } else {
-                        Err(format!("No container names {}.", path[0]))
-                    }
-                } else {
-                    Err(format!("No container names {}.", path[0]))
-                }
-            } else {
-                Err(format!("{} is not a father container.", self.name))
-            }
-        } else {
-            if let ContainerType::Father { subconts, .. } = &self.cont_type {
-                if let Some(down_cont) = &subconts[1] {
-                    if down_cont.read().unwrap().name == path[0] {
-                        if let Ok(res) = down_cont.read().unwrap().get_by_path(&path[1..]) {
-                            Ok(res)
-                        } else {
-                            Err(format!("No container names {}.", path[0]))
-                        }
-                    } else if let Some(up_cont) = &subconts[0] {
-                        if up_cont.read().unwrap().name == path[0] {
-                            if let Ok(res) = up_cont.read().unwrap().get_by_path(&path[1..]) {
-                                Ok(res)
-                            } else {
-                                Err(format!("No container names {}.", path[0]))
-                            }
-                        } else {
-                            Err(format!("No container names {}.", path[0]))
-                        }
-                    } else {
-                        Err(format!("No container names {}.", path[0]))
-                    }
-                } else {
-                    Err(format!("No container names {}.", path[0]))
-                }
-            } else {
-                Err(format!("{} is not a father container.", self.name))
-            }
-        }
+    pub fn get_size(&self) -> (usize, usize) {
+        (self.width, self.height)
     }
 
-    pub fn set_handler(&mut self, f: Box<dyn FnMut(Event)>) {
+    // 以后有可能用得上
+    // pub fn get_by_path(&self, path: &[&str]) -> Result<Arc<RwLock<Container>>, String> {
+    //     if path.len() == 1 {
+    //         if let ContainerType::Father { subconts, .. } = &self.cont_type {
+    //             if let Some(down_cont) = &subconts[1] {
+    //                 if down_cont.read().unwrap().name == path[0] {
+    //                     Ok(Arc::clone(down_cont))
+    //                 } else if let Some(up_cont) = &subconts[0] {
+    //                     if up_cont.read().unwrap().name == path[0] {
+    //                         Ok(Arc::clone(up_cont))
+    //                     } else {
+    //                         Err(format!("No container names {}.", path[0]))
+    //                     }
+    //                 } else {
+    //                     Err(format!("No container names {}.", path[0]))
+    //                 }
+    //             } else {
+    //                 Err(format!("No container names {}.", path[0]))
+    //             }
+    //         } else {
+    //             Err(format!("{} is not a father container.", self.name))
+    //         }
+    //     } else {
+    //         if let ContainerType::Father { subconts, .. } = &self.cont_type {
+    //             if let Some(down_cont) = &subconts[1] {
+    //                 if down_cont.read().unwrap().name == path[0] {
+    //                     if let Ok(res) = down_cont.read().unwrap().get_by_path(&path[1..]) {
+    //                         Ok(res)
+    //                     } else {
+    //                         Err(format!("No container names {}.", path[0]))
+    //                     }
+    //                 } else if let Some(up_cont) = &subconts[0] {
+    //                     if up_cont.read().unwrap().name == path[0] {
+    //                         if let Ok(res) = up_cont.read().unwrap().get_by_path(&path[1..]) {
+    //                             Ok(res)
+    //                         } else {
+    //                             Err(format!("No container names {}.", path[0]))
+    //                         }
+    //                     } else {
+    //                         Err(format!("No container names {}.", path[0]))
+    //                     }
+    //                 } else {
+    //                     Err(format!("No container names {}.", path[0]))
+    //                 }
+    //             } else {
+    //                 Err(format!("No container names {}.", path[0]))
+    //             }
+    //         } else {
+    //             Err(format!("{} is not a father container.", self.name))
+    //         }
+    //     }
+    // }
+
+    pub fn set_handler(&mut self, f: Box<EventHandler>) {
         self.eve_handler = Some(f);
     }
 
     pub fn dispatch(&mut self, event: Event) {
-        if let ContainerType::Father { subconts, .. } = &self.cont_type {
+        let size = self.get_size();
+        if let ContainerType::Father { subconts, .. } = &mut self.cont_type {
             for cont in subconts {
                 if let Some(cont) = cont {
                     cont.write().unwrap().dispatch(event.clone());
@@ -132,7 +136,7 @@ impl Container {
             }
         } else if self.focused {
             if let Some(handler) = &mut self.eve_handler {
-                (*handler)(event);
+                (*handler)(event, size);
             }
         }
     }
@@ -176,7 +180,6 @@ impl Container {
     }
 
     pub fn render(&self, father_offset: (usize, usize), stdout: &mut Stdout) {
-        queue!(stdout, ResetColor).unwrap();
         match &self.cont_type {
             ContainerType::Father { subconts, .. } => {
                 for cont in subconts {
@@ -187,11 +190,17 @@ impl Container {
                     }
                 }
             }
-            ContainerType::ProjectViewer(proj_viewer) => {
-                proj_viewer
-                    .read()
-                    .unwrap()
-                    .render(father_offset, (self.width, self.height), stdout)
+            ContainerType::ProjectViewer(proj_viewer) => proj_viewer.read().unwrap().render(
+                (father_offset.0 + self.x, father_offset.1 + self.y),
+                (self.width, self.height),
+                stdout,
+            ),
+            ContainerType::Terminal(terminal) => {
+                terminal.read().unwrap().render(
+                    (father_offset.0 + self.x, father_offset.1 + self.y),
+                    (self.width, self.height),
+                    stdout,
+                );
             }
             _ => {
                 let t = format!(
