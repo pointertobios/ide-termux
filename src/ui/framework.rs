@@ -44,7 +44,7 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        //queue!(stdout, Clear(ClearType::All)).unwrap();
+        queue!(stdout, Clear(ClearType::All)).unwrap();
         if let Some(container) = &self.container {
             container.read().unwrap().render((0, 0), &mut stdout);
         }
@@ -115,6 +115,87 @@ impl Framework {
                             let new_path =
                                 if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
                                     let rpath = &path.0;
+                                    if let Some(rrpath) = rpath {
+                                        let rpath = rrpath
+                                            .split("/")
+                                            .filter(|x| !x.is_empty())
+                                            .collect::<Vec<&str>>();
+                                        container.write().unwrap().disfocus_path(&bpath);
+                                        container.write().unwrap().focus_path(&rpath);
+                                        rrpath.to_string()
+                                    } else {
+                                        self.focused_path.clone()
+                                    }
+                                } else {
+                                    self.focused_path.clone()
+                                };
+                            self.focused_path = new_path;
+                        }
+                    }
+		    ChangeFocusEvent::Down => {
+                        if let Some(container) = &self.container {
+                            let bpath = self
+                                .focused_path
+                                .split("/")
+                                .filter(|x| !x.is_empty())
+                                .collect::<Vec<&str>>();
+                            let new_path =
+                                if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
+                                    let rpath = &path.1;
+                                    if let Some(rrpath) = rpath {
+                                        let rpath = rrpath
+                                            .split("/")
+                                            .filter(|x| !x.is_empty())
+                                            .collect::<Vec<&str>>();
+                                        container.write().unwrap().disfocus_path(&bpath);
+                                        container.write().unwrap().focus_path(&rpath);
+                                        rrpath.to_string()
+                                    } else {
+                                        self.focused_path.clone()
+                                    }
+                                } else {
+                                    self.focused_path.clone()
+                                };
+                            self.focused_path = new_path;
+                        }
+                    }
+		    ChangeFocusEvent::Left => {
+                        if let Some(container) = &self.container {
+                            let bpath = self
+                                .focused_path
+                                .split("/")
+                                .filter(|x| !x.is_empty())
+                                .collect::<Vec<&str>>();
+                            let new_path =
+                                if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
+                                    let rpath = &path.2;
+                                    if let Some(rrpath) = rpath {
+                                        let rpath = rrpath
+                                            .split("/")
+                                            .filter(|x| !x.is_empty())
+                                            .collect::<Vec<&str>>();
+                                        container.write().unwrap().disfocus_path(&bpath);
+                                        container.write().unwrap().focus_path(&rpath);
+                                        rrpath.to_string()
+                                    } else {
+                                        self.focused_path.clone()
+                                    }
+                                } else {
+                                    self.focused_path.clone()
+                                };
+                            self.focused_path = new_path;
+                        }
+                    }
+		    ChangeFocusEvent::Right => {
+                        if let Some(container) = &self.container {
+                            let bpath = self
+                                .focused_path
+                                .split("/")
+                                .filter(|x| !x.is_empty())
+                                .collect::<Vec<&str>>();
+                            let new_path =
+                                if let Some(path) = self.path_ajac_table.get(&self.focused_path) {
+                                    let rpath = &path.3;
                                     if let Some(rrpath) = rpath {
                                         let rpath = rrpath
                                             .split("/")

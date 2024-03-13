@@ -1,4 +1,7 @@
+#![feature(never_type)]
+
 mod ui;
+mod components;
 
 use std::{
     process::exit,
@@ -10,6 +13,7 @@ use ui::{
     framework::Framework,
     ChangeFocusEvent,
 };
+use components::project_viewer::ProjectViewer;
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -21,7 +25,7 @@ pub fn run() -> std::io::Result<()> {
     //framework.set_focused_path("/WorkArea/ProjectViewer");
     framework.set_focused_path("/Terminal");
 
-    let mut terminal_cont = Container::new(&"Terminal".to_string(), None);
+    let mut terminal_cont = Container::new("Terminal", None);
     terminal_cont.set_type(ContainerType::Terminal);
     terminal_cont.focus();
     let terminal_cont = Arc::new(RwLock::new(terminal_cont));
@@ -31,7 +35,7 @@ pub fn run() -> std::io::Result<()> {
         exit(-1);
     }
 
-    let mut workarea_cont = Container::new(&"WorkArea".to_string(), None);
+    let mut workarea_cont = Container::new("WorkArea", None);
     workarea_cont.set_type(ContainerType::Father {
         subconts: [None, None],
         vert_layout: false,
@@ -45,7 +49,7 @@ pub fn run() -> std::io::Result<()> {
         exit(-1);
     }
 
-    let mut editorarea_cont = Container::new(&"EditorArea".to_string(), None);
+    let mut editorarea_cont = Container::new("EditorArea", None);
     editorarea_cont.set_type(ContainerType::Father {
         subconts: [None, None],
         vert_layout: true,
@@ -59,17 +63,10 @@ pub fn run() -> std::io::Result<()> {
         exit(-1);
     }
 
-    let mut projv_cont = Container::new(&"ProjectViewer".to_string(), None);
-    projv_cont.set_type(ContainerType::ProjectViewer);
-    //projv_cont.focus();
-    let projv_cont = Arc::new(RwLock::new(projv_cont));
-    if let Err(s) = framework.add_container("/WorkArea", projv_cont) {
-        drop(framework);
-        println!("{}", s);
-        exit(-1);
-    }
+    let project_viewer = ProjectViewer::new();
+    if let Err(f) = project_viewer.bind_to(&mut framework) { f(framework); }
 
-    let mut editor_0 = Container::new(&"Editor0".to_string(), None);
+    let mut editor_0 = Container::new("Editor0", None);
     editor_0.set_type(ContainerType::Editor);
     //editor_0.focus();
     let editor_0 = Arc::new(RwLock::new(editor_0));
@@ -79,7 +76,7 @@ pub fn run() -> std::io::Result<()> {
         exit(-1);
     }
 
-    let mut editor_1 = Container::new(&"Editor1".to_string(), None);
+    let mut editor_1 = Container::new("Editor1", None);
     editor_1.set_type(ContainerType::Editor);
     let editor_1 = Arc::new(RwLock::new(editor_1));
     if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_1) {

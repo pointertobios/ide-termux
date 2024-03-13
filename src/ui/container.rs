@@ -33,7 +33,7 @@ pub struct Container {
 }
 
 impl Container {
-    pub fn new(name: &String, f: Option<Rc<RefCell<dyn FnMut(Event)>>>) -> Self {
+    pub fn new(name: &'static str, f: Option<Rc<RefCell<dyn FnMut(Event)>>>) -> Self {
         Container {
             name: name.to_string(),
             x: 0,
@@ -61,7 +61,7 @@ impl Container {
             cont_type: ContainerType::Father {
                 subconts: [None, None],
                 vert_layout: true,
-                all_own: false,
+                all_own: true,
             },
             eve_handler: f,
         }
@@ -134,9 +134,6 @@ impl Container {
     }
 
     pub fn focus_path(&mut self, path: &[&str]) {
-        if path.len() == 0 {
-            return;
-        }
         self.focused = true;
         if let ContainerType::Father { subconts, .. } = &self.cont_type {
             if let Some(down_cont) = &subconts[1] {
@@ -154,10 +151,6 @@ impl Container {
     }
 
     pub fn disfocus_path(&mut self, path: &[&str]) {
-        if path.len() == 0 {
-            return;
-        }
-        println!("{}", self.name);
         self.focused = false;
         if let ContainerType::Father { subconts, .. } = &self.cont_type {
             if let Some(down_cont) = &subconts[1] {
