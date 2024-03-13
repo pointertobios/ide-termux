@@ -132,21 +132,33 @@ pub fn run() -> std::io::Result<()> {
         match read()? {
             Event::Key(KeyEvent {
                 kind: KeyEventKind::Press | KeyEventKind::Repeat,
-                modifiers: KeyModifiers::ALT,
+                modifiers,
                 code,
                 ..
-            }) => match code {
-                KeyCode::Char('d') => {
-                    break;
+            }) => {
+                if modifiers.contains(KeyModifiers::CONTROL)
+                    && modifiers.contains(KeyModifiers::ALT)
+                {
+                    match code {
+                        KeyCode::Char('d') => {
+                            break;
+                        }
+                        KeyCode::Up => {
+                            framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Up))
+                        }
+                        KeyCode::Down => {
+                            framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Down))
+                        }
+                        KeyCode::Left => {
+                            framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Left))
+                        }
+                        KeyCode::Right => {
+                            framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Right))
+                        }
+                        _ => (),
+                    }
                 }
-                KeyCode::Up => framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Up)),
-                KeyCode::Down => framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Down)),
-                KeyCode::Left => framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Left)),
-                KeyCode::Right => {
-                    framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Right))
-                }
-                _ => (),
-            },
+            }
             Event::Resize(width, height) => framework.set_size(width as usize, height as usize),
             _ => (),
         }

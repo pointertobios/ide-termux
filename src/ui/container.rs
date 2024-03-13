@@ -157,6 +157,7 @@ impl Container {
         if path.len() == 0 {
             return;
         }
+        println!("{}", self.name);
         self.focused = false;
         if let ContainerType::Father { subconts, .. } = &self.cont_type {
             if let Some(down_cont) = &subconts[1] {
