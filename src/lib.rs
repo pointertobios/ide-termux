@@ -1,19 +1,19 @@
 #![feature(never_type)]
 
-mod ui;
 mod components;
+mod ui;
 
 use std::{
     process::exit,
     sync::{Arc, RwLock},
 };
 
+use components::{component::Component, project_viewer::ProjectViewer};
 use ui::{
     container::{Container, ContainerType},
     framework::Framework,
     ChangeFocusEvent,
 };
-use components::project_viewer::ProjectViewer;
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -41,7 +41,6 @@ pub fn run() -> std::io::Result<()> {
         vert_layout: false,
         all_own: true,
     });
-    //workarea_cont.focus();
     let workarea_cont = Arc::new(RwLock::new(workarea_cont));
     if let Err(s) = framework.add_container("/", workarea_cont) {
         drop(framework);
@@ -55,7 +54,6 @@ pub fn run() -> std::io::Result<()> {
         vert_layout: true,
         all_own: false,
     });
-    //editorarea_cont.focus();
     let editorarea_cont = Arc::new(RwLock::new(editorarea_cont));
     if let Err(s) = framework.add_container("/WorkArea", editorarea_cont) {
         drop(framework);
@@ -63,8 +61,10 @@ pub fn run() -> std::io::Result<()> {
         exit(-1);
     }
 
-    let project_viewer = ProjectViewer::new();
-    if let Err(f) = project_viewer.bind_to(&mut framework) { f(framework); }
+    let mut project_viewer = ProjectViewer::new();
+    if let Err(f) = project_viewer.bind_to(&mut framework) {
+        f(framework);
+    }
 
     let mut editor_0 = Container::new("Editor0", None);
     editor_0.set_type(ContainerType::Editor);

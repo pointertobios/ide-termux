@@ -132,7 +132,7 @@ impl Framework {
                             self.focused_path = new_path;
                         }
                     }
-		    ChangeFocusEvent::Down => {
+                    ChangeFocusEvent::Down => {
                         if let Some(container) = &self.container {
                             let bpath = self
                                 .focused_path
@@ -159,7 +159,7 @@ impl Framework {
                             self.focused_path = new_path;
                         }
                     }
-		    ChangeFocusEvent::Left => {
+                    ChangeFocusEvent::Left => {
                         if let Some(container) = &self.container {
                             let bpath = self
                                 .focused_path
@@ -186,7 +186,7 @@ impl Framework {
                             self.focused_path = new_path;
                         }
                     }
-		    ChangeFocusEvent::Right => {
+                    ChangeFocusEvent::Right => {
                         if let Some(container) = &self.container {
                             let bpath = self
                                 .focused_path

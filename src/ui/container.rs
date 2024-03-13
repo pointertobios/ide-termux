@@ -1,5 +1,8 @@
 use std::{
-    cell::RefCell, io::Stdout, rc::Rc, sync::{Arc, RwLock}
+    cell::RefCell,
+    io::Stdout,
+    rc::Rc,
+    sync::{Arc, RwLock},
 };
 
 use crossterm::{cursor, event::Event, queue, style};
@@ -25,8 +28,6 @@ pub struct Container {
     width: usize,
     height: usize,
     focused: bool,
-    cursor_x: usize,
-    cursor_y: usize,
     cont_type: ContainerType,
 
     eve_handler: Option<Rc<RefCell<dyn FnMut(Event)>>>,
@@ -41,8 +42,6 @@ impl Container {
             width: 0,
             height: 0,
             focused: false,
-            cursor_x: 0,
-            cursor_y: 0,
             cont_type: ContainerType::None,
             eve_handler: f,
         }
@@ -56,8 +55,6 @@ impl Container {
             width,
             height,
             focused: true,
-            cursor_x: 0,
-            cursor_y: 0,
             cont_type: ContainerType::Father {
                 subconts: [None, None],
                 vert_layout: true,
@@ -129,10 +126,6 @@ impl Container {
         self.focused = true;
     }
 
-    pub fn disfocus(&mut self) {
-        self.focused = false;
-    }
-
     pub fn focus_path(&mut self, path: &[&str]) {
         self.focused = true;
         if let ContainerType::Father { subconts, .. } = &self.cont_type {
@@ -164,18 +157,6 @@ impl Container {
                     }
                 }
             }
-        }
-    }
-
-    pub fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    pub fn is_father(&self) -> bool {
-        if let ContainerType::Father { .. } = &self.cont_type {
-            true
-        } else {
-            false
         }
     }
 
