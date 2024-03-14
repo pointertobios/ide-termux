@@ -6,6 +6,7 @@ use crossterm::{
     style::{self, Color},
 };
 use std::{
+    cmp::Ordering,
     fs,
     io::Stdout,
     process::exit,
@@ -59,7 +60,10 @@ impl ProjectViewer {
                             }
                         }
                         KeyCode::Down => {
-                            if line < (contsize.1 - 2).min(res_ref.read().unwrap().fs.get(contsize.1 - 1).len()-1) {
+                            if line
+                                < (contsize.1 - 2)
+                                    .min(res_ref.read().unwrap().fs.get(contsize.1 - 1).len() - 1)
+                            {
                                 res_ref.write().unwrap().at_line += 1;
                             }
                         }
@@ -141,7 +145,7 @@ impl Component for ProjectViewer {
                 queue!(stdout, style::Print(" ".to_string()),).unwrap();
             }
             // 主体
-	    let content = self.fs.get(size.1);
+            let content = self.fs.get(size.1);
             queue!(
                 stdout,
                 cursor::MoveTo(offset.0 as u16, offset.1 as u16 + 1),
@@ -160,16 +164,21 @@ impl Component for ProjectViewer {
                 } else if light_line {
                     queue!(stdout, style::ResetColor).unwrap();
                 } else {
-                    queue!(stdout, style::ResetColor, style::SetBackgroundColor(Color::DarkGrey)).unwrap();
+                    queue!(
+                        stdout,
+                        style::ResetColor,
+                        style::SetBackgroundColor(Color::DarkGrey)
+                    )
+                    .unwrap();
                 }
-		let line = content[i].clone();
+                let line = content[i].clone();
                 let line = if line.len() > size.0 {
-		    line.split_at(size.0).0.to_string()
-		} else {
-		    line
-		};
-		let len = line.len();
-		queue!(stdout, style::Print(line)).unwrap();
+                    line.split_at(size.0).0.to_string()
+                } else {
+                    line
+                };
+                let len = line.len();
+                queue!(stdout, style::Print(line)).unwrap();
                 for _ in 0..(size.0 - len) {
                     queue!(stdout, style::Print(" ".to_string())).unwrap();
                 }
@@ -180,6 +189,7 @@ impl Component for ProjectViewer {
     }
 }
 
+#[derive(PartialEq, PartialOrd)]
 enum PathType {
     File,
     Directory,
@@ -191,12 +201,33 @@ struct Path(String, PathType, Vec<Box<Self>>);
 
 impl PartialEq for Path {
     fn eq(&self, s: &Self) -> bool {
-	self.0 == s.0
+        self.0 == s.0
     }
 }
 
 impl PartialOrd for Path {
-    fn partial_cmp(&self, s: &Self) -> Option<Orderibg> {}
+    fn partial_cmp(&self, s: &Self) -> Option<Ordering> {
+        if self.1 == PathType::None || s.1 == PathType::None {
+            None
+        } else {
+            match self.1.partial_cmp(&s.1) {
+                Some(o) => match o {
+                    Ordering::Less => Some(Ordering::Greater),
+                    Ordering::Equal => Some(self.0.cmp(&s.0)),
+                    Ordering::Greater => Some(Ordering::Less),
+                },
+                None => None,
+            }
+        }
+    }
+}
+
+impl Eq for Path {}
+
+impl Ord for Path {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
 }
 
 struct Filesystem {
@@ -210,7 +241,7 @@ impl Filesystem {
         let mut res = Filesystem {
             root,
             path_cache: Vec::new(),
-	    showing_start: 0,
+            showing_start: 0,
         };
         for entry in fs::read_dir(&res.root).unwrap() {
             let entry = entry.unwrap();
@@ -229,23 +260,24 @@ impl Filesystem {
                 Vec::new(),
             ));
         }
+        res.path_cache.sort();
         res
     }
 
     pub fn get(&self, lines: usize) -> Vec<String> {
-	let mut count = 0;
-	let mut line = 0;
-	let mut res = Vec::new();
-	for entry in &self.path_cache {
-	    if line >= self.showing_start {
-		res.push(entry.0.clone());
-		count += 1;
-	    }
-	    line += 1;
-	    if count >= lines {
-		break;
-	    }
-	}
-	res
+        let mut count = 0;
+        let mut line = 0;
+        let mut res = Vec::new();
+        for entry in &self.path_cache {
+            if line >= self.showing_start {
+                res.push(entry.0.clone());
+                count += 1;
+            }
+            line += 1;
+            if count >= lines {
+                break;
+            }
+        }
+        res
     }
 }

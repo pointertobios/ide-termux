@@ -1,7 +1,10 @@
 use crossterm::{
     cursor, queue,
     style::ResetColor,
-    terminal::{disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use std::{
     collections::HashMap,
@@ -32,7 +35,13 @@ pub struct Framework {
 impl Framework {
     pub fn new() -> Self {
         enable_raw_mode().unwrap();
-        queue!(std::io::stdout(), Clear(ClearType::All), cursor::Hide).unwrap();
+        queue!(
+            std::io::stdout(),
+            EnterAlternateScreen,
+            cursor::Hide,
+            Clear(ClearType::All)
+        )
+        .unwrap();
         std::io::stdout().flush().unwrap();
         let mut framework = Framework {
             width: window_size().unwrap().columns as usize,
@@ -235,7 +244,7 @@ impl Framework {
 
 impl Drop for Framework {
     fn drop(&mut self) {
-        queue!(std::io::stdout(), cursor::Show).unwrap();
+        queue!(std::io::stdout(), cursor::Show, LeaveAlternateScreen).unwrap();
         disable_raw_mode().unwrap();
     }
 }
