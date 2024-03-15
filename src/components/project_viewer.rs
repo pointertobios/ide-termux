@@ -9,7 +9,7 @@ use std::{
     cell::RefCell,
     cmp::Ordering,
     fs,
-    io::Stdout,
+    io::{Stdout, Write},
     process::exit,
     rc::Rc,
     sync::{Arc, RwLock},
@@ -333,6 +333,13 @@ impl Filesystem {
             showing_start: 0,
             last_max: Rc::new(RefCell::new(0)),
         };
+        queue!(
+            std::io::stdout(),
+            cursor::MoveTo(0, 0),
+            style::Print("加载项目...")
+        )
+        .unwrap();
+        std::io::stdout().flush().unwrap();
         res.traverse_fs();
         res.path_cache.sort();
         res
