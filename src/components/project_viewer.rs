@@ -145,7 +145,6 @@ impl Component for ProjectViewer {
                 queue!(stdout, style::Print(" ".to_string()),).unwrap();
             }
             // 主体
-            let content = self.fs.get(size.1);
             queue!(
                 stdout,
                 cursor::MoveTo(offset.0 as u16, offset.1 as u16 + 1),
@@ -153,7 +152,9 @@ impl Component for ProjectViewer {
             )
             .unwrap();
             let mut light_line = true;
-            for i in 0..(size.1 - 1).min(content.len()) {
+	    let mut i = 0;
+	    self.fs.set_iter_max(size.1);
+            for line_meta in self.fs.iter() {
                 if i == self.at_line {
                     queue!(
                         stdout,
@@ -171,7 +172,19 @@ impl Component for ProjectViewer {
                     )
                     .unwrap();
                 }
-                let line = content[i].clone();
+		let line = {
+		    let mut s = String::new();
+		    for _ in 0..line_meta.1 {
+			s += "  ";
+		    }
+		    if line_meta.2 == PathType::Directory {
+			s += "> ";
+		    } else {
+			s += "  ";
+		    }
+		    s
+		};
+                let line = line + line_meta.0;
                 let line = if line.len() > size.0 {
                     line.split_at(size.0).0.to_string()
                 } else {
@@ -184,6 +197,7 @@ impl Component for ProjectViewer {
                 }
                 queue!(stdout, cursor::MoveToColumn(0), cursor::MoveToNextLine(1)).unwrap();
                 light_line = !light_line;
+		i += 1;
             }
         }
     }
@@ -261,23 +275,6 @@ impl Filesystem {
             ));
         }
         res.path_cache.sort();
-        res
-    }
-
-    pub fn get(&self, lines: usize) -> Vec<String> {
-        let mut count = 0;
-        let mut line = 0;
-        let mut res = Vec::new();
-        for entry in &self.path_cache {
-            if line >= self.showing_start {
-                res.push(entry.0.clone());
-                count += 1;
-            }
-            line += 1;
-            if count >= lines {
-                break;
-            }
-        }
         res
     }
 }
