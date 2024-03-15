@@ -173,7 +173,6 @@ impl Component for ProjectViewer {
                 style::ResetColor
             )
             .unwrap();
-            let mut light_line = true;
             let mut i = 0;
             for line_meta in self.fs.iter(size.1 - 1) {
                 if i == self.at_line {
@@ -183,28 +182,21 @@ impl Component for ProjectViewer {
                         style::SetForegroundColor(Color::Black)
                     )
                     .unwrap();
-                } else if light_line {
-                    queue!(stdout, style::ResetColor).unwrap();
                 } else {
-                    queue!(
-                        stdout,
-                        style::ResetColor,
-                        style::SetBackgroundColor(Color::DarkGrey)
-                    )
-                    .unwrap();
+                    queue!(stdout, style::ResetColor).unwrap();
                 }
                 let line = {
                     let mut s = String::new();
                     if line_meta.1 == PathType::Directory {
                         for i in 0..line_meta.3 {
                             if i + 1 == line_meta.3 {
-                                if line_meta.4 {
+                                if *line_meta.4.last().unwrap() {
                                     s += "┕━"
                                 } else {
                                     s += "┝━";
                                 }
                             } else {
-                                s += "│ ";
+                                s += if line_meta.4[i + 1] { "  " } else { "│ " };
                             }
                         }
                         if line_meta.2 {
@@ -215,13 +207,13 @@ impl Component for ProjectViewer {
                     } else {
                         for i in 0..line_meta.3 {
                             if i + 1 == line_meta.3 {
-                                if line_meta.4 {
+                                if *line_meta.4.last().unwrap() {
                                     s += "╰─";
                                 } else {
                                     s += "├─";
                                 }
                             } else {
-                                s += "│ ";
+                                s += if line_meta.4[i + 1] { "  " } else { "│ " };
                             }
                         }
                         s += "─ ";
@@ -240,7 +232,6 @@ impl Component for ProjectViewer {
                     queue!(stdout, style::Print(" ".to_string())).unwrap();
                 }
                 queue!(stdout, cursor::MoveToColumn(0), cursor::MoveToNextLine(1)).unwrap();
-                light_line = !light_line;
                 i += 1;
             }
         }
@@ -393,7 +384,7 @@ impl Filesystem {
 
     pub fn iter(&self, max: usize) -> FilesystemIterator {
         let mut res = Vec::new();
-        generate_meta_list(&self.path_cache, &mut res, 0, &mut vec![]);
+        generate_meta_list(&self.path_cache, &mut res, 0, &mut vec![], &mut vec![]);
         let res = res[self.showing_start..].to_vec();
         let res = res[..max.min(res.len())].to_vec();
         FilesystemIterator { inner: res }
@@ -405,28 +396,31 @@ fn generate_meta_list(
     res: &mut Vec<PathMeta>,
     depth: usize,
     cur_path: &mut Vec<String>,
+    endflg_path: &mut Vec<bool>,
 ) {
     let mut c = 0;
     let l = paths.len();
     for path in paths {
         let Path(name, ptype, unfolded, directory) = path.as_ref();
         cur_path.push(name.clone());
+        endflg_path.push(c + 1 == l);
         res.push((
             cur_path.clone(),
             *ptype,
             *unfolded.borrow(),
             depth,
-            c + 1 == l,
+            endflg_path.clone(),
         ));
         if *unfolded.borrow() {
-            generate_meta_list(directory, res, depth + 1, cur_path);
+            generate_meta_list(directory, res, depth + 1, cur_path, endflg_path);
         }
         let _ = cur_path.pop();
+        let _ = endflg_path.pop();
         c += 1;
     }
 }
 
-type PathMeta = (Vec<String>, PathType, bool, usize, bool);
+type PathMeta = (Vec<String>, PathType, bool, usize, Vec<bool>);
 
 struct FilesystemIterator {
     inner: Vec<PathMeta>,
