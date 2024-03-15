@@ -59,6 +59,8 @@ impl ProjectViewer {
                         KeyCode::Up => {
                             if line > 0 {
                                 res_ref.write().unwrap().at_line -= 1;
+                            } else if res_ref.read().unwrap().fs.showing_start > 0 {
+                                res_ref.write().unwrap().fs.showing_start -= 1;
                             }
                         }
                         KeyCode::Down => {
@@ -75,6 +77,9 @@ impl ProjectViewer {
                                 )
                             {
                                 res_ref.write().unwrap().at_line += 1;
+                            } else if contsize.1 - 1 < *res_ref.read().unwrap().fs.last_max.borrow()
+                            {
+                                res_ref.write().unwrap().fs.showing_start += 1;
                             }
                         }
                         KeyCode::Enter => {
@@ -283,6 +288,7 @@ struct Filesystem {
     root: String,
     path_cache: Vec<Box<Path>>,
     showing_start: usize,
+    last_max: Rc<RefCell<usize>>,
 }
 
 fn traverse(path: &str, path_local: &mut Vec<String>) -> Vec<Box<Path>> {
@@ -325,6 +331,7 @@ impl Filesystem {
             root,
             path_cache: Vec::new(),
             showing_start: 0,
+            last_max: Rc::new(RefCell::new(0)),
         };
         res.traverse_fs();
         res.path_cache.sort();
@@ -386,6 +393,7 @@ impl Filesystem {
         let mut res = Vec::new();
         generate_meta_list(&self.path_cache, &mut res, 0, &mut vec![], &mut vec![]);
         let res = res[self.showing_start..].to_vec();
+        *self.last_max.borrow_mut() = res.len();
         let res = res[..max.min(res.len())].to_vec();
         FilesystemIterator { inner: res }
     }

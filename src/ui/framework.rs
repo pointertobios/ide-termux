@@ -71,6 +71,7 @@ impl Framework {
     }
 
     pub fn set_size(&mut self, width: usize, height: usize) {
+        let width = if width < 11 { 11 } else { width };
         self.width = width;
         self.height = height;
         if let Some(container) = &self.container {
