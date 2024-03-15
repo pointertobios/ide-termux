@@ -61,8 +61,16 @@ impl ProjectViewer {
                         }
                         KeyCode::Down => {
                             if line
-                                < (contsize.1 - 2)
-                                    .min(res_ref.read().unwrap().fs.get(contsize.1 - 1).len() - 1)
+                                < (contsize.1 - 2).min(
+                                    res_ref
+                                        .read()
+                                        .unwrap()
+                                        .fs
+                                        .iter(contsize.1 - 1)
+                                        .collect::<Vec<_>>()
+                                        .len()
+                                        - 1,
+                                )
                             {
                                 res_ref.write().unwrap().at_line += 1;
                             }
@@ -152,9 +160,8 @@ impl Component for ProjectViewer {
             )
             .unwrap();
             let mut light_line = true;
-	    let mut i = 0;
-	    self.fs.set_iter_max(size.1);
-            for line_meta in self.fs.iter() {
+            let mut i = 0;
+            for line_meta in self.fs.iter(size.1 - 1) {
                 if i == self.at_line {
                     queue!(
                         stdout,
@@ -172,19 +179,23 @@ impl Component for ProjectViewer {
                     )
                     .unwrap();
                 }
-		let line = {
-		    let mut s = String::new();
-		    for _ in 0..line_meta.1 {
-			s += "  ";
-		    }
-		    if line_meta.2 == PathType::Directory {
-			s += "> ";
-		    } else {
-			s += "  ";
-		    }
-		    s
-		};
-                let line = line + line_meta.0;
+                let line = {
+                    let mut s = String::new();
+                    for _ in 0..line_meta.3 {
+                        s += "  ";
+                    }
+                    if line_meta.1 == PathType::Directory {
+                        if line_meta.2 {
+                            s += "v ";
+                        } else {
+                            s += "> ";
+                        }
+                    } else {
+                        s += "  ";
+                    }
+                    s
+                };
+                let line = line + &line_meta.0;
                 let line = if line.len() > size.0 {
                     line.split_at(size.0).0.to_string()
                 } else {
@@ -197,13 +208,13 @@ impl Component for ProjectViewer {
                 }
                 queue!(stdout, cursor::MoveToColumn(0), cursor::MoveToNextLine(1)).unwrap();
                 light_line = !light_line;
-		i += 1;
+                i += 1;
             }
         }
     }
 }
 
-#[derive(PartialEq, PartialOrd)]
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
 enum PathType {
     File,
     Directory,
@@ -246,7 +257,7 @@ impl Ord for Path {
 
 struct Filesystem {
     root: String,
-    path_cache: Vec<Path>,
+    path_cache: Vec<Box<Path>>,
     showing_start: usize,
 }
 
@@ -268,13 +279,47 @@ impl Filesystem {
             } else {
                 PathType::None
             };
-            res.path_cache.push(Path(
+            res.path_cache.push(Box::new(Path(
                 entry.file_name().into_string().unwrap(),
                 ptype,
                 Vec::new(),
-            ));
+            )));
         }
         res.path_cache.sort();
         res
+    }
+
+    pub fn iter(&self, max: usize) -> FilesystemIterator {
+        let mut res = Vec::new();
+        generate_meta_list(&self.path_cache, &mut res, 0);
+        let res = res[self.showing_start..].to_vec();
+        let res = res[..max.min(res.len())].to_vec();
+        FilesystemIterator { inner: res }
+    }
+}
+
+fn generate_meta_list(paths: &Vec<Box<Path>>, res: &mut Vec<PathMeta>, depth: usize) {
+    for path in paths {
+        let Path(name, ptype, directory) = path.as_ref();
+        res.push((name.clone(), *ptype, !directory.is_empty(), depth));
+        generate_meta_list(directory, res, depth + 1);
+    }
+}
+
+type PathMeta = (String, PathType, bool, usize);
+
+struct FilesystemIterator {
+    inner: Vec<PathMeta>,
+}
+
+impl Iterator for FilesystemIterator {
+    type Item = PathMeta;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.inner.len() == 0 {
+            None
+        } else {
+            Some(self.inner.remove(0))
+        }
     }
 }
