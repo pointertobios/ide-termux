@@ -6,12 +6,12 @@ use crossterm::{
     style::{self, Color},
 };
 use std::{
-    rc::Rc,
     cell::RefCell,
     cmp::Ordering,
     fs,
     io::Stdout,
     process::exit,
+    rc::Rc,
     sync::{Arc, RwLock},
 };
 
@@ -77,13 +77,18 @@ impl ProjectViewer {
                                 res_ref.write().unwrap().at_line += 1;
                             }
                         }
-			KeyCode::Enter => {
-			    let content = res_ref.read().unwrap().fs.iter(contsize.1 - 1).collect::<Vec<_>>();
-			    let meta = &content[res_ref.read().unwrap().at_line];
-			    if meta.1 == PathType::Directory {
-				res_ref.write().unwrap().fs.fold_unfold(&meta.0, None);
-			    }
-			}
+                        KeyCode::Enter => {
+                            let content = res_ref
+                                .read()
+                                .unwrap()
+                                .fs
+                                .iter(contsize.1 - 1)
+                                .collect::<Vec<_>>();
+                            let meta = &content[res_ref.read().unwrap().at_line];
+                            if meta.1 == PathType::Directory {
+                                res_ref.write().unwrap().fs.fold_unfold(&meta.0, None);
+                            }
+                        }
                         _ => (),
                     },
                     _ => (),
@@ -190,17 +195,36 @@ impl Component for ProjectViewer {
                 }
                 let line = {
                     let mut s = String::new();
-                    for _ in 0..line_meta.3 {
-                        s += "  ";
-                    }
                     if line_meta.1 == PathType::Directory {
+                        for i in 0..line_meta.3 {
+                            if i + 1 == line_meta.3 {
+                                if line_meta.4 {
+                                    s += "┕━"
+                                } else {
+                                    s += "┝━";
+                                }
+                            } else {
+                                s += "│ ";
+                            }
+                        }
                         if line_meta.2 {
-                            s += "v ";
+                            s += "┭ ";
                         } else {
-                            s += "> ";
+                            s += "╾ ";
                         }
                     } else {
-                        s += "  ";
+                        for i in 0..line_meta.3 {
+                            if i + 1 == line_meta.3 {
+                                if line_meta.4 {
+                                    s += "╰─";
+                                } else {
+                                    s += "├─";
+                                }
+                            } else {
+                                s += "│ ";
+                            }
+                        }
+                        s += "─ ";
                     }
                     s
                 };
@@ -210,7 +234,7 @@ impl Component for ProjectViewer {
                 } else {
                     line
                 };
-                let len = line.len();
+                let len = line.chars().collect::<Vec<_>>().len();
                 queue!(stdout, style::Print(line)).unwrap();
                 for _ in 0..(size.0 - len) {
                     queue!(stdout, style::Print(" ".to_string())).unwrap();
@@ -270,31 +294,37 @@ struct Filesystem {
     showing_start: usize,
 }
 
-fn traverse(path: &str) -> Vec<Box<Path>> {
+fn traverse(path: &str, path_local: &mut Vec<String>) -> Vec<Box<Path>> {
     let mut res = Vec::new();
     let list = if let Ok(l) = fs::read_dir(path) {
-	l
+        l
     } else {
-	return res;
+        return res;
     };
     for entry in list {
-            let entry = entry.unwrap();
-            let ptype = if entry.path().is_file() {
-                PathType::File
-            } else if entry.path().is_dir() {
-                PathType::Directory
-            } else if entry.path().is_symlink() {
-                PathType::SymLink
-            } else {
-                PathType::None
-            };
-            res.push(Box::new(Path(
-                entry.file_name().into_string().unwrap(),
-                ptype,
-		Rc::new(RefCell::new(false)),
-                traverse(&(path.to_string() + "/" + &entry.file_name().into_string().unwrap())),
-            )));
+        let entry = entry.unwrap();
+        path_local.push(entry.file_name().into_string().unwrap());
+        let ptype = if entry.path().is_file() {
+            PathType::File
+        } else if entry.path().is_dir() {
+            PathType::Directory
+        } else if entry.path().is_symlink() {
+            PathType::SymLink
+        } else {
+            PathType::None
+        };
+        res.push(Box::new(Path(
+            entry.file_name().into_string().unwrap(),
+            ptype,
+            Rc::new(RefCell::new(false)),
+            traverse(
+                &(path.to_string() + "/" + &entry.file_name().into_string().unwrap()),
+                path_local,
+            ),
+        )));
+        let _ = path_local.pop();
     }
+    res.sort();
     res
 }
 
@@ -311,8 +341,10 @@ impl Filesystem {
     }
 
     pub fn traverse_fs(&mut self) {
-	for entry in fs::read_dir(&self.root).unwrap() {
+        let mut path_local = Vec::new();
+        for entry in fs::read_dir(&self.root).unwrap() {
             let entry = entry.unwrap();
+            path_local.push(entry.file_name().into_string().unwrap());
             let ptype = if entry.path().is_file() {
                 PathType::File
             } else if entry.path().is_dir() {
@@ -325,34 +357,38 @@ impl Filesystem {
             self.path_cache.push(Box::new(Path(
                 entry.file_name().into_string().unwrap(),
                 ptype,
-		Rc::new(RefCell::new(false)),
-                traverse(&(self.root.clone() + "/" + &entry.file_name().into_string().unwrap())),
+                Rc::new(RefCell::new(false)),
+                traverse(
+                    &(self.root.clone() + "/" + &entry.file_name().into_string().unwrap()),
+                    &mut path_local,
+                ),
             )));
+            let _ = path_local.pop();
         }
     }
 
     pub fn fold_unfold(&self, path: &[String], cache: Option<&Vec<Box<Path>>>) {
-	let cache = if let Some(c) = cache {
-		c
-	    } else {
-		&self.path_cache
-	    };
-	if path.len() == 1 {
-	    for entry in cache {
-		if entry.0 == path[0] {
-		    let b = *entry.2.borrow();
-		    *entry.2.borrow_mut() = !b;
-		    break;
-		}
-	    }
-	} else {
-	    for entry in cache {
-		if entry.0 == path[0] {
-		    self.fold_unfold(&path[1..], Some(cache));
-		    break;
-		}
-	    }
-	}
+        let cache = if let Some(c) = cache {
+            c
+        } else {
+            &self.path_cache
+        };
+        if path.len() == 1 {
+            for entry in cache {
+                if entry.0 == path[0] {
+                    let b = *entry.2.borrow();
+                    *entry.2.borrow_mut() = !b;
+                    break;
+                }
+            }
+        } else {
+            for entry in cache {
+                if entry.0 == path[0] {
+                    self.fold_unfold(&path[1..], Some(&entry.3));
+                    break;
+                }
+            }
+        }
     }
 
     pub fn iter(&self, max: usize) -> FilesystemIterator {
@@ -364,19 +400,33 @@ impl Filesystem {
     }
 }
 
-fn generate_meta_list(paths: &Vec<Box<Path>>, res: &mut Vec<PathMeta>, depth: usize, cur_path: &mut Vec<String>) {
+fn generate_meta_list(
+    paths: &Vec<Box<Path>>,
+    res: &mut Vec<PathMeta>,
+    depth: usize,
+    cur_path: &mut Vec<String>,
+) {
+    let mut c = 0;
+    let l = paths.len();
     for path in paths {
         let Path(name, ptype, unfolded, directory) = path.as_ref();
-	cur_path.push(name.clone());
-        res.push((cur_path.clone(), *ptype, *unfolded.borrow(), depth));
-	if *unfolded.borrow() {
+        cur_path.push(name.clone());
+        res.push((
+            cur_path.clone(),
+            *ptype,
+            *unfolded.borrow(),
+            depth,
+            c + 1 == l,
+        ));
+        if *unfolded.borrow() {
             generate_meta_list(directory, res, depth + 1, cur_path);
-	}
-	let _ = cur_path.pop();
+        }
+        let _ = cur_path.pop();
+        c += 1;
     }
 }
 
-type PathMeta = (Vec<String>, PathType, bool, usize);
+type PathMeta = (Vec<String>, PathType, bool, usize, bool);
 
 struct FilesystemIterator {
     inner: Vec<PathMeta>,
