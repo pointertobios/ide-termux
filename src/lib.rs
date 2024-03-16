@@ -1,14 +1,17 @@
 #![feature(never_type)]
 
 mod components;
+mod pseudo_mt;
+mod renderer;
 mod ui;
 
-use std::{
-    process::exit,
-    sync::{Arc, RwLock},
+use components::{
+    areas::{EditorArea, WorkArea},
+    component::Component,
+    editor::Editor,
+    project_viewer::ProjectViewer,
+    terminal::Terminal,
 };
-
-use components::{component::Component, project_viewer::ProjectViewer, terminal::Terminal};
 use ui::{
     container::{Container, ContainerType},
     framework::Framework,
@@ -25,30 +28,14 @@ pub fn run() -> std::io::Result<()> {
         f(framework);
     }
 
-    let mut workarea_cont = Container::new("WorkArea", None);
-    workarea_cont.set_type(ContainerType::Father {
-        subconts: [None, None],
-        vert_layout: false,
-        all_own: true,
-    });
-    let workarea_cont = Arc::new(RwLock::new(workarea_cont));
-    if let Err(s) = framework.add_container("/", workarea_cont) {
-        drop(framework);
-        println!("{}", s);
-        exit(-1);
+    let work_area = WorkArea::new();
+    if let Err(f) = work_area.write().unwrap().bind_to(&mut framework) {
+        f(framework);
     }
 
-    let mut editorarea_cont = Container::new("EditorArea", None);
-    editorarea_cont.set_type(ContainerType::Father {
-        subconts: [None, None],
-        vert_layout: true,
-        all_own: false,
-    });
-    let editorarea_cont = Arc::new(RwLock::new(editorarea_cont));
-    if let Err(s) = framework.add_container("/WorkArea", editorarea_cont) {
-        drop(framework);
-        println!("{}", s);
-        exit(-1);
+    let editor_area = EditorArea::new();
+    if let Err(f) = editor_area.write().unwrap().bind_to(&mut framework) {
+        f(framework);
     }
 
     let project_viewer = ProjectViewer::new();
@@ -56,23 +43,14 @@ pub fn run() -> std::io::Result<()> {
         f(framework);
     }
 
-    let mut editor_0 = Container::new("Editor0", None);
-    editor_0.set_type(ContainerType::Editor);
-    //editor_0.focus();
-    let editor_0 = Arc::new(RwLock::new(editor_0));
-    if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_0) {
-        drop(framework);
-        println!("{}", s);
-        exit(-1);
+    let editor0 = Editor::new(0);
+    if let Err(f) = editor0.write().unwrap().bind_to(&mut framework) {
+        f(framework);
     }
 
-    let mut editor_1 = Container::new("Editor1", None);
-    editor_1.set_type(ContainerType::Editor);
-    let editor_1 = Arc::new(RwLock::new(editor_1));
-    if let Err(s) = framework.add_container("/WorkArea/EditorArea", editor_1) {
-        drop(framework);
-        println!("{}", s);
-        exit(-1);
+    let editor1 = Editor::new(1);
+    if let Err(f) = editor1.write().unwrap().bind_to(&mut framework) {
+        f(framework);
     }
 
     framework.set_adjacy(

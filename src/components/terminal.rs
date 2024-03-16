@@ -3,13 +3,12 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crossterm::{
-    cursor, queue,
-    style::{self, Color},
-};
+use crossterm::style::{Color, Stylize};
 
 use crate::{
     components::component::Component,
+    pseudo_mt::PseudoMultithreading,
+    renderer::Renderer,
     ui::{
         container::{Container, ContainerType},
         framework::Framework,
@@ -61,25 +60,60 @@ impl Component for Terminal {
         }
     }
 
-    fn render(&self, offset: (usize, usize), size: (usize, usize), stdout: &mut std::io::Stdout) {
-        queue!(
-            stdout,
-            style::ResetColor,
-            cursor::MoveTo(offset.0 as u16, offset.1 as u16),
-            style::SetBackgroundColor(Color::DarkBlue),
-            style::SetForegroundColor(Color::Red),
-        )
-        .unwrap();
-        let tt = format!("Terminal {}", self.shell);
-        let tt = if tt.len() > size.0 {
-            tt.split_at(size.1).0.to_string()
+    fn render(&self, renderer: Arc<RwLock<Renderer>>) -> (bool, (usize, usize)) {
+        let size = renderer.read().unwrap().get_size();
+        let title = format!("Terminal {}", self.shell);
+        let title = title.chars().collect::<Vec<_>>();
+        let title = if title.len() > size.0 {
+            title.split_at(size.0).0.to_vec()
         } else {
-            tt
+            title
         };
-        queue!(stdout, style::Print(tt.clone())).unwrap();
-        for _ in 0..(size.0 - tt.len()) {
-            queue!(stdout, style::Print(" ".to_string()),).unwrap();
+        if !self.container.read().unwrap().focused() {
+            for i in 0..size.0 {
+                if i < title.len() {
+                    renderer
+                        .read()
+                        .unwrap()
+                        .set(i, 0, title[i].with(Color::White).on_dark_grey());
+                } else {
+                    renderer
+                        .read()
+                        .unwrap()
+                        .set(i, 0, ' '.with(Color::White).on_dark_grey());
+                }
+            }
+        } else {
+            // 绘制标题
+            for i in 0..size.0 {
+                if i < title.len() {
+                    renderer.read().unwrap().set(
+                        i,
+                        0,
+                        title[i].with(Color::DarkRed).on_dark_blue(),
+                    );
+                } else {
+                    renderer
+                        .read()
+                        .unwrap()
+                        .set(i, 0, ' '.with(Color::DarkRed).on_dark_blue());
+                }
+            }
+            // 绘制主体
+            let mut linen = 1;
+            // 覆盖不需要的
+            let mut pmt = PseudoMultithreading::new();
+            while linen < size.1 {
+                for i in 0..size.0 {
+                    let rd = Arc::clone(&renderer);
+                    pmt.add(Box::new(move || {
+                        rd.read().unwrap().set(i, linen, ' '.reset());
+                    }));
+                }
+                linen += 1;
+            }
+            pmt.run();
         }
-        queue!(stdout, style::ResetColor).unwrap();
+        (false, (0, 0))
     }
 }

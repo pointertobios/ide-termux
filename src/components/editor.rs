@@ -47,7 +47,7 @@ impl Component for Editor {
         }
     }
 
-    fn render(&self, renderer: &mut Renderer) -> (bool, (usize, usize)) {
+    fn render(&self, renderer: Arc<RwLock<Renderer>>) -> (bool, (usize, usize)) {
         (false, (0, 0))
     }
 }

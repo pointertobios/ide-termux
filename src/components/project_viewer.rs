@@ -1,15 +1,18 @@
-use crate::{components::component::Component, Container, ContainerType, Framework};
+use crate::{
+    components::component::Component, pseudo_mt::PseudoMultithreading, renderer::Renderer,
+    Container, ContainerType, Framework,
+};
 use crossterm::{
     cursor,
     event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers},
     queue,
-    style::{self, Color},
+    style::{self, Color, Stylize},
 };
 use std::{
     cell::RefCell,
     cmp::Ordering,
     fs,
-    io::{Stdout, Write},
+    io::Write,
     process::exit,
     rc::Rc,
     sync::{Arc, RwLock},
@@ -92,6 +95,12 @@ impl ProjectViewer {
                             let meta = &content[res_ref.read().unwrap().at_line];
                             if meta.1 == PathType::Directory {
                                 res_ref.write().unwrap().fs.fold_unfold(&meta.0, None);
+                            } else {
+                                let mut file_path = res_ref.read().unwrap().path.clone();
+                                for name in &meta.0 {
+                                    file_path += &("/".to_string() + name);
+                                }
+                                // TODO
                             }
                         }
                         _ => (),
@@ -118,128 +127,121 @@ impl Component for ProjectViewer {
         }
     }
 
-    fn render(&self, offset: (usize, usize), size: (usize, usize), stdout: &mut Stdout) {
-        queue!(stdout, cursor::MoveTo(offset.0 as u16, offset.1 as u16)).unwrap();
-        if size.0 == 1 {
-            queue!(
-                stdout,
-                style::SetBackgroundColor(Color::DarkGrey),
-                style::SetForegroundColor(Color::White)
-            )
-            .unwrap();
-            let tt = format!(
-                "ProjViewer {}",
-                self.path.split("/").collect::<Vec<&str>>().last().unwrap()
-            );
-            let tt = if tt.len() > size.1 {
-                tt.split_at(size.1).0.to_string()
-            } else {
-                tt
-            };
-            for c in tt.chars() {
-                queue!(stdout, style::Print(c), cursor::MoveToNextLine(1)).unwrap();
-            }
-            for _ in 0..(size.1 - tt.len()) {
-                queue!(
-                    stdout,
-                    style::Print(" ".to_string()),
-                    cursor::MoveToNextLine(1)
-                )
-                .unwrap();
+    fn render(&self, renderer: Arc<RwLock<Renderer>>) -> (bool, (usize, usize)) {
+        let size = renderer.read().unwrap().get_size();
+        let title = self.path.split("/").last().unwrap().to_string();
+        let title = title.chars().collect::<Vec<_>>();
+        let title = if title.len() > size.0 {
+            title.split_at(size.0).0.to_vec()
+        } else {
+            title
+        };
+        if !self.container.read().unwrap().focused() {
+            for i in 0..size.0 {
+                if i < title.len() {
+                    renderer
+                        .read()
+                        .unwrap()
+                        .set(i, 0, title[i].with(Color::White).on_dark_grey());
+                } else {
+                    renderer
+                        .read()
+                        .unwrap()
+                        .set(i, 0, ' '.with(Color::White).on_dark_grey());
+                }
             }
         } else {
-            // 标题
-            queue!(
-                stdout,
-                style::SetBackgroundColor(Color::DarkBlue),
-                style::SetForegroundColor(Color::Red)
-            )
-            .unwrap();
-            let tt = self
-                .path
-                .split("/")
-                .collect::<Vec<&str>>()
-                .last()
-                .unwrap()
-                .to_string();
-            let tt = if tt.len() > size.0 {
-                tt.split_at(size.1).0.to_string()
-            } else {
-                tt
-            };
-            queue!(stdout, style::Print(tt.clone())).unwrap();
-            for _ in 0..(size.0 - tt.len()) {
-                queue!(stdout, style::Print(" ".to_string()),).unwrap();
-            }
-            // 主体
-            queue!(
-                stdout,
-                cursor::MoveTo(offset.0 as u16, offset.1 as u16 + 1),
-                style::ResetColor
-            )
-            .unwrap();
-            let mut i = 0;
-            for line_meta in self.fs.iter(size.1 - 1) {
-                if i == self.at_line {
-                    queue!(
-                        stdout,
-                        style::SetBackgroundColor(Color::Grey),
-                        style::SetForegroundColor(Color::Black)
-                    )
-                    .unwrap();
+            // 绘制标题
+            for i in 0..size.0 {
+                if i < title.len() {
+                    renderer.read().unwrap().set(
+                        i,
+                        0,
+                        title[i].with(Color::DarkRed).on_dark_blue(),
+                    );
                 } else {
-                    queue!(stdout, style::ResetColor).unwrap();
+                    renderer
+                        .read()
+                        .unwrap()
+                        .set(i, 0, ' '.with(Color::DarkRed).on_dark_blue());
                 }
-                let line = {
-                    let mut s = String::new();
-                    if line_meta.1 == PathType::Directory {
-                        for i in 0..line_meta.3 {
-                            if i + 1 == line_meta.3 {
-                                if *line_meta.4.last().unwrap() {
-                                    s += "┕━"
-                                } else {
-                                    s += "┝━";
-                                }
+            }
+            // 绘制主体
+            let mut linen = 1;
+            for (path, ptype, open, depth, endflg_path) in self.fs.iter(size.1 - 1) {
+                let mut s = String::new();
+                for i in 0..depth {
+                    s += if i == depth - 1 {
+                        if ptype == PathType::Directory {
+                            if *endflg_path.last().unwrap() {
+                                "┕━"
                             } else {
-                                s += if line_meta.4[i + 1] { "  " } else { "│ " };
+                                "┝━"
                             }
-                        }
-                        if line_meta.2 {
-                            s += "┭ ";
                         } else {
-                            s += "╾ ";
+                            if *endflg_path.last().unwrap() {
+                                "╰─"
+                            } else {
+                                "├─"
+                            }
                         }
                     } else {
-                        for i in 0..line_meta.3 {
-                            if i + 1 == line_meta.3 {
-                                if *line_meta.4.last().unwrap() {
-                                    s += "╰─";
-                                } else {
-                                    s += "├─";
-                                }
-                            } else {
-                                s += if line_meta.4[i + 1] { "  " } else { "│ " };
-                            }
+                        if endflg_path[i + 1] {
+                            "  "
+                        } else {
+                            "│ "
                         }
-                        s += "─ ";
-                    }
-                    s
-                };
-                let line = line + &line_meta.0.last().unwrap();
-                let line = if line.len() > size.0 {
-                    line.split_at(size.0).0.to_string()
-                } else {
-                    line
-                };
-                let len = line.chars().collect::<Vec<_>>().len();
-                queue!(stdout, style::Print(line)).unwrap();
-                for _ in 0..(size.0 - len) {
-                    queue!(stdout, style::Print(" ".to_string())).unwrap();
+                    };
                 }
-                queue!(stdout, cursor::MoveToColumn(0), cursor::MoveToNextLine(1)).unwrap();
-                i += 1;
+                s += if ptype == PathType::Directory {
+                    if open {
+                        "┭ "
+                    } else {
+                        "╾ "
+                    }
+                } else if ptype == PathType::None {
+                    "──"
+                } else {
+                    "─ "
+                };
+                s += &path.last().unwrap();
+                let s = if s.chars().collect::<Vec<_>>().len() > size.0 {
+                    s.chars().collect::<Vec<_>>().split_at(size.0).0.to_vec()
+                } else {
+                    s.chars().collect::<Vec<_>>()
+                };
+                for i in 0..size.0 {
+                    let ch = if i < s.len() {
+                        if linen - 1 == self.at_line {
+                            s[i].on_white().with(Color::Black)
+                        } else {
+                            s[i].reset()
+                        }
+                    } else {
+                        if linen - 1 == self.at_line {
+                            ' '.on_white().with(Color::Black)
+                        } else {
+                            ' '.reset()
+                        }
+                    };
+                    renderer.read().unwrap().set(i, linen, ch);
+                }
+                linen += 1;
             }
+            // 覆盖不需要的
+            let mut pmt = PseudoMultithreading::new();
+            while linen < size.1 {
+                for i in 0..size.0 {
+                    let rd = Arc::clone(&renderer);
+                    pmt.add(Box::new(move || {
+                        rd.write().unwrap().set(i, linen, ' '.reset());
+                    }));
+                }
+                linen += 1;
+            }
+            pmt.run();
         }
+        (false, (0, 0))
     }
 }
 
@@ -432,6 +434,19 @@ fn generate_meta_list(
         let _ = cur_path.pop();
         let _ = endflg_path.pop();
         c += 1;
+    }
+    if l == 0 {
+        cur_path.push("".to_string());
+        endflg_path.push(true);
+        res.push((
+            cur_path.clone(),
+            PathType::None,
+            false,
+            depth,
+            endflg_path.clone(),
+        ));
+        let _ = cur_path.pop();
+        let _ = endflg_path.pop();
     }
 }
 

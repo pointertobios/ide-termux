@@ -1,6 +1,6 @@
 use crossterm::{
-    cursor, queue,
-    style::ResetColor,
+    cursor::{self, MoveTo},
+    queue,
     terminal::{
         disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType, EnterAlternateScreen,
         LeaveAlternateScreen,
@@ -11,6 +11,8 @@ use std::{
     io::Write,
     sync::{Arc, RwLock},
 };
+
+use crate::renderer::Renderer;
 
 use super::{container::Container, ChangeFocusEvent, Event};
 
@@ -59,9 +61,20 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        queue!(stdout, Clear(ClearType::All), ResetColor).unwrap();
         if let Some(container) = &self.container {
-            container.read().unwrap().render((0, 0), &mut stdout);
+            let renderer = Renderer::new(0, 0, self.width, self.height);
+            let renderer = Arc::new(RwLock::new(renderer));
+            let location = container.read().unwrap().render(renderer);
+            if location.0 {
+                queue!(
+                    stdout,
+                    cursor::Show,
+                    MoveTo(location.1 .0 as u16, location.1 .1 as u16)
+                )
+                .unwrap();
+            } else {
+                queue!(stdout, cursor::Hide).unwrap();
+            }
         }
         stdout.flush().unwrap();
     }

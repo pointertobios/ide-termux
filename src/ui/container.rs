@@ -1,9 +1,11 @@
-use crate::components::{component::Component, project_viewer::ProjectViewer, terminal::Terminal};
-use crossterm::{cursor, event::Event, queue, style};
-use std::{
-    io::Stdout,
-    sync::{Arc, RwLock},
+use crate::{
+    components::{
+        component::Component, editor::Editor, project_viewer::ProjectViewer, terminal::Terminal,
+    },
+    renderer::Renderer,
 };
+use crossterm::event::Event;
+use std::sync::{Arc, RwLock};
 
 pub enum ContainerType {
     Father {
@@ -15,7 +17,7 @@ pub enum ContainerType {
     },
     ProjectViewer(Arc<RwLock<ProjectViewer>>),
     Terminal(Arc<RwLock<Terminal>>),
-    Editor,
+    Editor(Arc<RwLock<Editor>>),
     None,
 }
 
@@ -35,7 +37,7 @@ pub struct Container {
 }
 
 impl Container {
-    pub fn new(name: &'static str, f: Option<Box<EventHandler>>) -> Self {
+    pub fn new(name: &str, f: Option<Box<EventHandler>>) -> Self {
         Container {
             name: name.to_string(),
             x: 0,
@@ -65,8 +67,16 @@ impl Container {
         }
     }
 
+    pub fn focused(&self) -> bool {
+        self.focused
+    }
+
     pub fn get_size(&self) -> (usize, usize) {
         (self.width, self.height)
+    }
+
+    pub fn get_location(&self) -> (usize, usize) {
+        (self.x, self.y)
     }
 
     // 以后有可能用得上
@@ -179,57 +189,35 @@ impl Container {
         }
     }
 
-    pub fn render(&self, father_offset: (usize, usize), stdout: &mut Stdout) {
+    pub fn render(&self, renderer: Arc<RwLock<Renderer>>) -> (bool, (usize, usize)) {
         match &self.cont_type {
             ContainerType::Father { subconts, .. } => {
+                let mut res = None;
                 for cont in subconts {
                     if let Some(cont) = cont {
-                        cont.read()
-                            .unwrap()
-                            .render((father_offset.0 + self.x, father_offset.1 + self.y), stdout);
+                        let size = cont.read().unwrap().get_size();
+                        let location = cont.read().unwrap().get_location();
+                        let subrend =
+                            Renderer::new(self.x + location.0, self.y + location.1, size.0, size.1);
+                        let subrend = Arc::new(RwLock::new(subrend));
+                        let r = cont.read().unwrap().render(subrend);
+                        if cont.read().unwrap().focused {
+                            res = Some(r);
+                        }
                     }
                 }
-            }
-            ContainerType::ProjectViewer(proj_viewer) => proj_viewer.read().unwrap().render(
-                (father_offset.0 + self.x, father_offset.1 + self.y),
-                (self.width, self.height),
-                stdout,
-            ),
-            ContainerType::Terminal(terminal) => {
-                terminal.read().unwrap().render(
-                    (father_offset.0 + self.x, father_offset.1 + self.y),
-                    (self.width, self.height),
-                    stdout,
-                );
-            }
-            _ => {
-                let t = format!(
-                    "{}: [{}, {}] {}",
-                    self.name,
-                    self.width,
-                    self.height,
-                    if self.focused { "focused" } else { "unfocused" }
-                );
-                let t = if t.len() > self.width {
-                    t.split_at(self.width).0.to_string()
+                if let Some(res) = res {
+                    res
                 } else {
-                    t
-                };
-                queue!(
-                    stdout,
-                    cursor::MoveTo(
-                        (father_offset.0 + self.x) as u16,
-                        (father_offset.1 + self.y) as u16
-                    ),
-                    style::Print(t),
-                    cursor::MoveTo(
-                        (father_offset.0 + self.x + self.width) as u16 - 1,
-                        (father_offset.1 + self.y + self.height) as u16 - 1
-                    ),
-                    style::Print("+"),
-                )
-                .unwrap();
+                    (false, (0, 0))
+                }
             }
+            ContainerType::ProjectViewer(proj_viewer) => {
+                proj_viewer.read().unwrap().render(renderer)
+            }
+            ContainerType::Terminal(terminal) => terminal.read().unwrap().render(renderer),
+            ContainerType::Editor(editor) => editor.read().unwrap().render(renderer),
+            _ => (false, (0, 0)),
         }
     }
 
