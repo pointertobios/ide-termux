@@ -189,7 +189,7 @@ impl Container {
         }
     }
 
-    pub fn render(&self, renderer: Arc<RwLock<Renderer>>) -> (bool, (usize, usize)) {
+    pub fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
         match &self.cont_type {
             ContainerType::Father { subconts, .. } => {
                 let mut res = None;
@@ -199,8 +199,7 @@ impl Container {
                         let location = cont.read().unwrap().get_location();
                         let subrend =
                             Renderer::new(self.x + location.0, self.y + location.1, size.0, size.1);
-                        let subrend = Arc::new(RwLock::new(subrend));
-                        let r = cont.read().unwrap().render(subrend);
+                        let r = cont.read().unwrap().render(&subrend);
                         if cont.read().unwrap().focused {
                             res = Some(r);
                         }

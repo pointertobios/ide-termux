@@ -1,5 +1,3 @@
-use std::io::Stdout;
-
 use crossterm::{
     cursor, queue,
     style::{self, StyledContent},

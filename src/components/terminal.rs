@@ -8,7 +8,6 @@ use crossterm::style::{Color, Stylize};
 
 use crate::{
     components::component::Component,
-    pseudo_mt::PseudoMultithreading,
     renderer::Renderer,
     ui::{
         container::{Container, ContainerType},
@@ -61,61 +60,37 @@ impl Component for Terminal {
         }
     }
 
-    fn render(&self, renderer: Arc<RwLock<Renderer>>) -> (bool, (usize, usize)) {
-        let size = renderer.read().unwrap().get_size();
+    fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
+        let size = renderer.get_size();
         let title = format!("Terminal {}", self.shell);
         let title = title.chars().collect::<Vec<_>>();
-        let title = if title.len() > size.0 {
+        let mut title = if title.len() > size.0 {
             title.split_at(size.0).0.to_vec()
         } else {
             title
         };
+        title.append(
+            &mut iter::repeat(' ')
+                .take(size.0 - title.len())
+                .collect::<Vec<_>>(),
+        );
+        let title = String::from_iter(title.iter());
         if !self.container.read().unwrap().focused() {
-            for i in 0..size.0 {
-                if i < title.len() {
-                    renderer
-                        .read()
-                        .unwrap()
-                        .set(i, 0, title[i].with(Color::White).on_dark_grey());
-                } else {
-                    renderer
-                        .read()
-                        .unwrap()
-                        .set(i, 0, ' '.with(Color::White).on_dark_grey());
-                }
-            }
+            renderer.set_section(0, 0, title.with(Color::White).on_dark_grey());
         } else {
             // 绘制标题
-            for i in 0..size.0 {
-                if i < title.len() {
-                    renderer.read().unwrap().set(
-                        i,
-                        0,
-                        title[i].with(Color::DarkRed).on_dark_blue(),
-                    );
-                } else {
-                    renderer
-                        .read()
-                        .unwrap()
-                        .set(i, 0, ' '.with(Color::DarkRed).on_dark_blue());
-                }
-            }
+            renderer.set_section(0, 0, title.with(Color::DarkRed).on_dark_blue());
             // 绘制主体
             let mut linen = 1;
             // 覆盖不需要的
-            let mut pmt = PseudoMultithreading::new();
             while linen < size.1 {
-                let rd = Arc::clone(&renderer);
-                pmt.add(Box::new(move || {
-                    rd.read().unwrap().set_section(
-                        0,
-                        linen,
-                        iter::repeat(' ').take(size.0).collect::<String>().reset(),
-                    );
-                }));
+                renderer.set_section(
+                    0,
+                    linen,
+                    iter::repeat(' ').take(size.0).collect::<String>().reset(),
+                );
                 linen += 1;
             }
-            pmt.run();
         }
         (false, (0, 0))
     }

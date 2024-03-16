@@ -2,8 +2,7 @@ use crossterm::{
     cursor::{self, MoveTo},
     queue,
     terminal::{
-        disable_raw_mode, enable_raw_mode, window_size, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
+        disable_raw_mode, enable_raw_mode, window_size, EnterAlternateScreen, LeaveAlternateScreen,
     },
 };
 use std::{
@@ -57,8 +56,7 @@ impl Framework {
         let mut stdout = std::io::stdout();
         if let Some(container) = &self.container {
             let renderer = Renderer::new(0, 0, self.width, self.height);
-            let renderer = Arc::new(RwLock::new(renderer));
-            let location = container.read().unwrap().render(renderer);
+            let location = container.read().unwrap().render(&renderer);
             if location.0 {
                 queue!(
                     stdout,

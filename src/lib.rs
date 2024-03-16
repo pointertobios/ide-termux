@@ -1,9 +1,10 @@
 #![feature(never_type)]
 
 mod components;
-mod pseudo_mt;
 mod renderer;
 mod ui;
+
+use std::time::Instant;
 
 use components::{
     areas::{EditorArea, WorkArea},
