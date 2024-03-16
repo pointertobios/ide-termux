@@ -1,4 +1,5 @@
 use std::{
+    iter,
     process::exit,
     sync::{Arc, RwLock},
 };
@@ -104,12 +105,14 @@ impl Component for Terminal {
             // 覆盖不需要的
             let mut pmt = PseudoMultithreading::new();
             while linen < size.1 {
-                for i in 0..size.0 {
-                    let rd = Arc::clone(&renderer);
-                    pmt.add(Box::new(move || {
-                        rd.read().unwrap().set(i, linen, ' '.reset());
-                    }));
-                }
+                let rd = Arc::clone(&renderer);
+                pmt.add(Box::new(move || {
+                    rd.read().unwrap().set_section(
+                        0,
+                        linen,
+                        iter::repeat(' ').take(size.0).collect::<String>().reset(),
+                    );
+                }));
                 linen += 1;
             }
             pmt.run();

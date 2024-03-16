@@ -37,4 +37,16 @@ impl Renderer {
         )
         .unwrap();
     }
+
+    pub fn set_section(&self, x: usize, y: usize, st: StyledContent<String>) {
+        if x > self.width || y > self.height {
+            return;
+        }
+        queue!(
+            std::io::stdout(),
+            cursor::MoveTo((self.x + x) as u16, (self.y + y) as u16),
+            style::PrintStyledContent(st)
+        )
+        .unwrap();
+    }
 }

@@ -13,6 +13,7 @@ use std::{
     cmp::Ordering,
     fs,
     io::Write,
+    iter,
     process::exit,
     rc::Rc,
     sync::{Arc, RwLock},
@@ -205,38 +206,38 @@ impl Component for ProjectViewer {
                     "─ "
                 };
                 s += &path.last().unwrap();
-                let s = if s.chars().collect::<Vec<_>>().len() > size.0 {
+                let mut s = if s.chars().collect::<Vec<_>>().len() > size.0 {
                     s.chars().collect::<Vec<_>>().split_at(size.0).0.to_vec()
                 } else {
                     s.chars().collect::<Vec<_>>()
                 };
-                for i in 0..size.0 {
-                    let ch = if i < s.len() {
-                        if linen - 1 == self.at_line {
-                            s[i].on_white().with(Color::Black)
-                        } else {
-                            s[i].reset()
-                        }
-                    } else {
-                        if linen - 1 == self.at_line {
-                            ' '.on_white().with(Color::Black)
-                        } else {
-                            ' '.reset()
-                        }
-                    };
-                    renderer.read().unwrap().set(i, linen, ch);
+                let len = s.len();
+                for _ in 0..size.0 - len {
+                    s.push(' ');
                 }
+                let s = String::from_iter(s.iter());
+                renderer.read().unwrap().set_section(
+                    0,
+                    linen,
+                    if linen - 1 == self.at_line {
+                        s.with(Color::Black).on_grey()
+                    } else {
+                        s.reset()
+                    },
+                );
                 linen += 1;
             }
             // 覆盖不需要的
             let mut pmt = PseudoMultithreading::new();
             while linen < size.1 {
-                for i in 0..size.0 {
-                    let rd = Arc::clone(&renderer);
-                    pmt.add(Box::new(move || {
-                        rd.write().unwrap().set(i, linen, ' '.reset());
-                    }));
-                }
+                let rd = Arc::clone(&renderer);
+                pmt.add(Box::new(move || {
+                    rd.read().unwrap().set_section(
+                        0,
+                        linen,
+                        iter::repeat(' ').take(size.0).collect::<String>().reset(),
+                    );
+                }));
                 linen += 1;
             }
             pmt.run();
