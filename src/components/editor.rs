@@ -1,3 +1,5 @@
+use crossterm::style::{Color, Stylize};
+
 use crate::{
     renderer::Renderer,
     ui::{
@@ -7,6 +9,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
+    iter,
     process::exit,
     sync::{Arc, RwLock},
 };
@@ -33,7 +36,7 @@ impl Editor {
             container,
             id,
             file: None,
-	    mode: EditorMode::Command,
+            mode: EditorMode::Command,
         }));
         res.read()
             .unwrap()
@@ -62,14 +65,7 @@ impl Component for Editor {
 
     fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
         let size = renderer.get_size();
-	let mut title = if let Some(editing) = &self.file {
-	    editing.read().unwrap().path.last().unwrap().clone()
-	} else {
-	    format!("Editor {}", self.id)
-	};
-	if !self.container.read().unwrap().focused() {
-	    
-	}
+        let focused = self.container.read().unwrap().focused();
         (false, (0, 0))
     }
 }
@@ -83,12 +79,12 @@ pub struct Editing {
 
 impl Editing {
     pub fn new(path: Vec<String>, showing_start: usize, showing_length: usize) -> Self {
-	Editing {
-	    path,
-	    buffer: HashMap::new(),
-	    showing_start,
-	    showing_length,
-	}
+        Editing {
+            path,
+            buffer: HashMap::new(),
+            showing_start,
+            showing_length,
+        }
     }
 }
 
@@ -97,5 +93,5 @@ struct LineDiff {
     /// 对于一个文件中原有的行，这个vec总是以换行结尾，即使是空行
     /// 当这个vec长度为0时，说明是新加入的行
     origin_content: Vec<char>,
-    inserts: ()
+    inserts: (),
 }

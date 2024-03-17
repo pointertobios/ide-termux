@@ -76,10 +76,10 @@ impl Component for Terminal {
         );
         let title = String::from_iter(title.iter());
         if !self.container.read().unwrap().focused() {
-            renderer.set_section(0, 0, title.with(Color::White).on_dark_grey());
+            renderer.set_section(0, 0, title.white().on_dark_grey());
         } else {
             // 绘制标题
-            renderer.set_section(0, 0, title.with(Color::DarkRed).on_dark_blue());
+            renderer.set_section(0, 0, title.dark_red().on_dark_blue());
             // 绘制主体
             let mut linen = 1;
             // 覆盖不需要的

@@ -129,32 +129,31 @@ impl Component for ProjectViewer {
 
     fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
         let size = renderer.get_size();
+        let focused = self.container.read().unwrap().focused();
         let title = self.path.split("/").last().unwrap().to_string();
         let title = title.chars().collect::<Vec<_>>();
-        let mut title = if title.len() > size.0 {
-            title.split_at(size.0).0.to_vec()
+        let mut title = if title.len() > if focused { size.0 } else { size.1 } {
+            title
+                .split_at(if focused { size.0 } else { size.1 })
+                .0
+                .to_vec()
         } else {
             title
         };
         title.append(
             &mut iter::repeat(' ')
-                .take(size.0 - title.len())
+                .take(if focused { size.0 } else { size.1 } - title.len())
                 .collect::<Vec<_>>(),
         );
-	let titlev = title;
+        let titlev = title;
         let title = String::from_iter(titlev.iter());
-        if !self.container.read().unwrap().focused() {
-            //renderer.set_section(0, 0, title.with(Color::White).on_dark_grey());
-	    for i in 0..size.1 {
-		if i < title.len() {
-		    renderer.set(0, i, titlev[i].with(Color::White).on_dark_grey());
-		} else {
-		    renderer.set(0, i, ' '.with(Color::White).on_dark_grey());
-		}
-	    }
+        if !focused {
+            for i in 0..title.len() {
+                renderer.set(0, i, titlev[i].white().on_dark_grey());
+            }
         } else {
             // 绘制标题
-            renderer.set_section(0, 0, title.with(Color::DarkRed).on_dark_blue());
+            renderer.set_section(0, 0, title.dark_red().on_dark_blue());
             // 绘制主体
             let mut linen = 1;
             for (path, ptype, open, depth, endflg_path) in self.fs.iter(size.1 - 1) {
@@ -205,7 +204,7 @@ impl Component for ProjectViewer {
                     0,
                     linen,
                     if linen - 1 == self.at_line {
-                        s.with(Color::Black).on_grey()
+                        s.black().on_grey()
                     } else {
                         s.reset()
                     },
