@@ -141,9 +141,17 @@ impl Component for ProjectViewer {
                 .take(size.0 - title.len())
                 .collect::<Vec<_>>(),
         );
-        let title = String::from_iter(title.iter());
+	let titlev = title;
+        let title = String::from_iter(titlev.iter());
         if !self.container.read().unwrap().focused() {
-            renderer.set_section(0, 0, title.with(Color::White).on_dark_grey());
+            //renderer.set_section(0, 0, title.with(Color::White).on_dark_grey());
+	    for i in 0..size.1 {
+		if i < title.len() {
+		    renderer.set(0, i, titlev[i].with(Color::White).on_dark_grey());
+		} else {
+		    renderer.set(0, i, ' '.with(Color::White).on_dark_grey());
+		}
+	    }
         } else {
             // 绘制标题
             renderer.set_section(0, 0, title.with(Color::DarkRed).on_dark_blue());
