@@ -109,8 +109,9 @@ impl ProjectViewer {
                         if contsize.1 > 1 {
                             let at_line = res_ref.read().unwrap().at_line;
                             let shstart = res_ref.read().unwrap().fs.showing_start;
-                            if at_line >= shstart + contsize.1 - 1 {
-                                res_ref.write().unwrap().at_line = shstart + contsize.1 - 2;
+                            if at_line >= contsize.1 - 1 {
+				res_ref.write().unwrap().fs.showing_start += at_line + 2 - contsize.1;
+                                res_ref.write().unwrap().at_line = contsize.1 - 2;
                             }
                         }
                     }

@@ -248,7 +248,9 @@ impl Container {
                                 height / 3 * 2
                             }
                         } else {
-                            if *all_own {
+			    if !up_cont.read().unwrap().focused {
+				height / 2
+                            } else if *all_own {
                                 1
                             } else {
                                 height / 3

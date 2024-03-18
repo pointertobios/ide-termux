@@ -57,6 +57,7 @@ pub struct WorkArea {
 impl WorkArea {
     pub fn new() -> Arc<RwLock<Self>> {
         let mut container = Container::new("WorkArea", None);
+	container.focus();
         container.set_type(ContainerType::Father {
             subconts: [None, None],
             vert_layout: false,
