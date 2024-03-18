@@ -4,8 +4,6 @@ mod components;
 mod renderer;
 mod ui;
 
-use std::time::Instant;
-
 use components::{
     areas::{EditorArea, WorkArea},
     component::Component,

@@ -23,7 +23,7 @@ impl EditorArea {
         container.set_type(ContainerType::Father {
             subconts: [None, None],
             vert_layout: true,
-            all_own: false,
+            all_own: true,
         });
         let container = Arc::new(RwLock::new(container));
         Arc::new(RwLock::new(EditorArea { container }))

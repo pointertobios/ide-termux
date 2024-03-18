@@ -5,7 +5,7 @@ use crossterm::{
     cursor,
     event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers},
     queue,
-    style::{self, Color, Stylize},
+    style::{self, Stylize},
 };
 use std::{
     cell::RefCell,
@@ -132,9 +132,9 @@ impl Component for ProjectViewer {
         let focused = self.container.read().unwrap().focused();
         let title = self.path.split("/").last().unwrap().to_string();
         let title = title.chars().collect::<Vec<_>>();
-        let mut title = if title.len() > if focused { size.0 } else { size.1 } {
+        let mut title = if title.len() > if size.0 == 1 { size.1 } else { size.0 } {
             title
-                .split_at(if focused { size.0 } else { size.1 })
+                .split_at(if size.0 == 1 { size.1 } else { size.0 })
                 .0
                 .to_vec()
         } else {
@@ -142,15 +142,21 @@ impl Component for ProjectViewer {
         };
         title.append(
             &mut iter::repeat(' ')
-                .take(if focused { size.0 } else { size.1 } - title.len())
+                .take(if size.0 == 1 { size.1 } else { size.0 } - title.len())
                 .collect::<Vec<_>>(),
         );
-        let titlev = title;
+        let mut titlev = title;
         let title = String::from_iter(titlev.iter());
         if !focused {
-            for i in 0..title.len() {
-                renderer.set(0, i, titlev[i].white().on_dark_grey());
-            }
+	    if size.0 == 1 {
+		let mut title = String::from("ProjViewer | ").chars().collect::<Vec<_>>();
+		title.append(&mut titlev);
+		for i in 0..title.len() {
+                    renderer.set(0, i, title[i].white().on_dark_grey());
+		}
+	    } else {
+		renderer.set_section(0, 0, title.white().on_dark_grey());
+	    }
         } else {
             // 绘制标题
             renderer.set_section(0, 0, title.dark_red().on_dark_blue());

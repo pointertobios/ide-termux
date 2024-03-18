@@ -1,4 +1,4 @@
-use crossterm::style::{Color, Stylize};
+use crossterm::style::Stylize;
 
 use crate::{
     renderer::Renderer,
@@ -31,7 +31,7 @@ pub struct Editor {
 impl Editor {
     pub fn new(id: usize) -> Arc<RwLock<Self>> {
         let container = Container::new(&("Editor".to_string() + &id.to_string()), None);
-        let container = Arc::new(RwLock::new(container));
+            let container = Arc::new(RwLock::new(container));
         let res = Arc::new(RwLock::new(Editor {
             container,
             id,
@@ -66,6 +66,61 @@ impl Component for Editor {
     fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
         let size = renderer.get_size();
         let focused = self.container.read().unwrap().focused();
+	let title = if let Some(f) = &self.file {
+	    " ".to_string() + &f.read().unwrap().path.last().unwrap().clone()
+	} else {
+	    format!(" Editor {}", self.id)
+	};
+	// 标题
+	if !focused {
+	    let title = title.chars().collect::<Vec<_>>();
+	    if size.0 == 1 {
+      	        let mut title = if title.len() > size.1 {
+		    title.split_at(size.1).0.to_vec()
+	        } else {
+		    title
+	        };
+	        if title.len() < size.1 {
+		    title.append(&mut iter::repeat(' ').take(size.1 - title.len()).collect::<Vec<_>>());
+	        }
+		for i in 0..title.len() {
+		    renderer.set(0, i, title[i].white().on_dark_grey());
+		}
+	    } else {
+		let mut title = if title.len() > size.0 {
+		    title.split_at(size.1).0.to_vec()
+	        } else {
+		    title
+	        };
+	        if title.len() < size.0 {
+		    title.append(&mut iter::repeat(' ').take(size.0 - title.len()).collect::<Vec<_>>());
+	        }
+		let title = String::from_iter(title.iter());
+		renderer.set_section(0, 0, title.white().on_dark_grey());
+	    }
+	} else {
+	    let title = title.chars().collect::<Vec<_>>();
+	    let mut title = if title.len() > size.0 {
+	        title.split_at(size.1).0.to_vec()
+	    } else {
+		title
+	    };
+	    if title.len() < size.0 {
+		title.append(&mut iter::repeat(' ').take(size.0 - title.len()).collect::<Vec<_>>());
+	    }
+	    let title = String::from_iter(title.iter());
+	    renderer.set_section(0, 0, title.dark_red().on_dark_blue());
+	}
+	// 内容
+	if size.0 > 1 {
+	    let mut linen = 1;
+	    while linen < size.1 {
+		let mut l = iter::repeat(' ').take(size.0).collect::<Vec<_>>();
+		let l = String::from_iter(&mut l.iter());
+		renderer.set_section(0, linen, l.reset());
+		linen += 1;
+	    }
+	}
         (false, (0, 0))
     }
 }

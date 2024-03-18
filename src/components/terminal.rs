@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crossterm::style::{Color, Stylize};
+use crossterm::style::Stylize;
 
 use crate::{
     components::component::Component,
