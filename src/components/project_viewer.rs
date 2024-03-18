@@ -105,6 +105,15 @@ impl ProjectViewer {
                         }
                         _ => (),
                     },
+                    Event::Resize(..) => {
+                        if contsize.1 > 1 {
+                            let at_line = res_ref.read().unwrap().at_line;
+                            let shstart = res_ref.read().unwrap().fs.showing_start;
+                            if at_line >= shstart + contsize.1 - 1 {
+                                res_ref.write().unwrap().at_line = shstart + contsize.1 - 2;
+                            }
+                        }
+                    }
                     _ => (),
                 }
             }));
@@ -148,15 +157,15 @@ impl Component for ProjectViewer {
         let mut titlev = title;
         let title = String::from_iter(titlev.iter());
         if !focused {
-	    if size.0 == 1 {
-		let mut title = String::from("ProjViewer | ").chars().collect::<Vec<_>>();
-		title.append(&mut titlev);
-		for i in 0..title.len() {
+            if size.0 == 1 {
+                let mut title = String::from("ProjViewer | ").chars().collect::<Vec<_>>();
+                title.append(&mut titlev);
+                for i in 0..title.len() {
                     renderer.set(0, i, title[i].white().on_dark_grey());
-		}
-	    } else {
-		renderer.set_section(0, 0, title.white().on_dark_grey());
-	    }
+                }
+            } else {
+                renderer.set_section(0, 0, title.white().on_dark_grey());
+            }
         } else {
             // 绘制标题
             renderer.set_section(0, 0, title.dark_red().on_dark_blue());

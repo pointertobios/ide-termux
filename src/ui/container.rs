@@ -227,6 +227,9 @@ impl Container {
     }
 
     pub fn set_size(&mut self, width: usize, height: usize) {
+        if let Some(f) = &mut self.eve_handler {
+            f(Event::Resize(width as u16, height as u16), (width, height));
+        }
         self.width = width;
         self.height = height;
         if let ContainerType::Father {
