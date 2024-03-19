@@ -86,13 +86,13 @@ impl ProjectViewer {
                             }
                         }
                         KeyCode::Enter => {
-                            let content = res_ref
+                            let mut content = res_ref
                                 .read()
                                 .unwrap()
                                 .fs
                                 .iter(contsize.1 - 1)
                                 .collect::<Vec<_>>();
-                            let meta = &content[res_ref.read().unwrap().at_line];
+                            let meta = &mut content[res_ref.read().unwrap().at_line];
                             if meta.1 == PathType::Directory {
                                 res_ref.write().unwrap().fs.fold_unfold(&meta.0, None);
                             } else {
@@ -108,9 +108,9 @@ impl ProjectViewer {
                     Event::Resize(..) => {
                         if contsize.1 > 1 {
                             let at_line = res_ref.read().unwrap().at_line;
-                            let shstart = res_ref.read().unwrap().fs.showing_start;
                             if at_line >= contsize.1 - 1 {
-				res_ref.write().unwrap().fs.showing_start += at_line + 2 - contsize.1;
+                                res_ref.write().unwrap().fs.showing_start +=
+                                    at_line + 2 - contsize.1;
                                 res_ref.write().unwrap().at_line = contsize.1 - 2;
                             }
                         }
