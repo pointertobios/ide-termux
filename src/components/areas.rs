@@ -45,7 +45,7 @@ impl Component for EditorArea {
         }
     }
 
-    fn render(&self, _renderer: &Renderer) -> (bool, (usize, usize)) {
+    fn render(&mut self, _renderer: &Renderer) -> (bool, (usize, usize)) {
         (false, (0, 0))
     }
 }
@@ -83,7 +83,7 @@ impl Component for WorkArea {
         }
     }
 
-    fn render(&self, _renderer: &Renderer) -> (bool, (usize, usize)) {
+    fn render(&mut self, _renderer: &Renderer) -> (bool, (usize, usize)) {
         (false, (0, 0))
     }
 }

@@ -1,20 +1,21 @@
 use crossterm::style::Stylize;
-
-use crate::{
-    renderer::Renderer,
-    ui::{
-        container::{Container, ContainerType},
-        framework::Framework,
-    },
-};
 use std::{
     collections::HashMap,
     iter,
     process::exit,
     sync::{Arc, RwLock},
 };
+use tokio::sync::{mpsc::Receiver, RwLock as AsyncRwLock};
 
-use super::component::Component;
+use crate::{
+    components::component::Component,
+    named_pipe::{NamedPipe, PipeObject},
+    renderer::Renderer,
+    ui::{
+        container::{Container, ContainerType},
+        framework::Framework,
+    },
+};
 
 enum EditorMode {
     Command,
@@ -24,8 +25,9 @@ enum EditorMode {
 pub struct Editor {
     container: Arc<RwLock<Container>>,
     id: usize,
-    file: Option<Arc<RwLock<Editing>>>,
+    file: Option<Arc<AsyncRwLock<Editing>>>,
     mode: EditorMode,
+    file_open_receiver: Arc<AsyncRwLock<Receiver<PipeObject>>>,
 }
 
 impl Editor {
@@ -37,6 +39,7 @@ impl Editor {
             id,
             file: None,
             mode: EditorMode::Command,
+            file_open_receiver: NamedPipe::open_receiver(String::from("FileOpen")),
         }));
         res.read()
             .unwrap()
@@ -63,11 +66,14 @@ impl Component for Editor {
         }
     }
 
-    fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
+    fn render(&mut self, renderer: &Renderer) -> (bool, (usize, usize)) {
+        if let Ok(PipeObject::Editing(edi)) = self.file_open_receiver.blocking_write().try_recv() {
+            self.file = Some(edi);
+        }
         let size = renderer.get_size();
         let focused = self.container.read().unwrap().focused();
         let title = if let Some(f) = &self.file {
-            " ".to_string() + &f.read().unwrap().path.last().unwrap().clone()
+            " ".to_string() + &f.blocking_read().path.last().unwrap().clone()
         } else {
             format!(" Editor {}", self.id)
         };

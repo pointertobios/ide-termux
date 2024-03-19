@@ -212,10 +212,10 @@ impl Container {
                 }
             }
             ContainerType::ProjectViewer(proj_viewer) => {
-                proj_viewer.read().unwrap().render(renderer)
+                proj_viewer.write().unwrap().render(renderer)
             }
-            ContainerType::Terminal(terminal) => terminal.read().unwrap().render(renderer),
-            ContainerType::Editor(editor) => editor.read().unwrap().render(renderer),
+            ContainerType::Terminal(terminal) => terminal.write().unwrap().render(renderer),
+            ContainerType::Editor(editor) => editor.write().unwrap().render(renderer),
             _ => (false, (0, 0)),
         }
     }

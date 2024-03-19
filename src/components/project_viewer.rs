@@ -1,5 +1,6 @@
 use crate::{
     components::{component::Component, editor::Editing},
+    named_pipe::{NamedPipe, PipeObject},
     renderer::Renderer,
     Container, ContainerType, Framework,
 };
@@ -19,13 +20,15 @@ use std::{
     rc::Rc,
     sync::{Arc, RwLock},
 };
+use tokio::sync::{mpsc::Sender, RwLock as AsyncRwLock};
 
 pub struct ProjectViewer {
     container: Arc<RwLock<Container>>,
     path: String,
     at_line: usize,
-    editor_stack: Vec<Arc<RwLock<Editing>>>,
     fs: Filesystem,
+    editor_stack: Vec<Arc<AsyncRwLock<Editing>>>,
+    file_open_sender: Arc<AsyncRwLock<Sender<PipeObject>>>,
 }
 
 impl ProjectViewer {
@@ -40,6 +43,7 @@ impl ProjectViewer {
             at_line: 0,
             editor_stack: Vec::new(),
             fs: Filesystem::new(path),
+            file_open_sender: NamedPipe::open_sender(String::from("FileOpen")),
         }));
         res.read()
             .unwrap()
@@ -108,12 +112,19 @@ impl ProjectViewer {
                                     .collect::<Vec<String>>();
                                 file_path.append(&mut meta.0.clone());
                                 let editing = Editing::new(file_path);
-                                let editing = Arc::new(RwLock::new(editing));
+                                let editing = Arc::new(AsyncRwLock::new(editing));
                                 res_ref
                                     .write()
                                     .unwrap()
                                     .editor_stack
                                     .push(Arc::clone(&editing));
+                                res_ref
+                                    .read()
+                                    .unwrap()
+                                    .file_open_sender
+                                    .blocking_read()
+                                    .try_send(PipeObject::Editing(editing))
+                                    .unwrap();
                             }
                         }
                         _ => (),
@@ -150,7 +161,7 @@ impl Component for ProjectViewer {
         }
     }
 
-    fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
+    fn render(&mut self, renderer: &Renderer) -> (bool, (usize, usize)) {
         let size = renderer.get_size();
         let focused = self.container.read().unwrap().focused();
         let title = self.path.split("/").last().unwrap().to_string();

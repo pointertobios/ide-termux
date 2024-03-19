@@ -60,7 +60,7 @@ impl Component for Terminal {
         }
     }
 
-    fn render(&self, renderer: &Renderer) -> (bool, (usize, usize)) {
+    fn render(&mut self, renderer: &Renderer) -> (bool, (usize, usize)) {
         let size = renderer.get_size();
         let title = format!("Terminal {}", self.shell);
         let title = title.chars().collect::<Vec<_>>();
