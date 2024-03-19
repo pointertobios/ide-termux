@@ -89,22 +89,31 @@ impl ProjectViewer {
                             }
                         }
                         KeyCode::Enter => {
-                            let mut content = res_ref
+                            let content = res_ref
                                 .read()
                                 .unwrap()
                                 .fs
                                 .iter(contsize.1 - 1)
                                 .collect::<Vec<_>>();
                             let meta = &content[res_ref.read().unwrap().at_line];
-                            if meta.1 == PathType::Directory { // 展开目录
+                            if meta.1 == PathType::Directory {
+                                // 展开目录
                                 res_ref.write().unwrap().fs.fold_unfold(&meta.0, None);
-                            } else { // 打开文件
+                            } else {
+                                // 打开文件
                                 let file_path = res_ref.read().unwrap().path.clone();
-				let mut file_path = file_path.split("/").map(|s| s.to_string()).collect::<Vec<String>>();
-				file_path.append(&mut meta.0.clone());
-				let editing = Editing::new(file_path);
-				let editing = Arc::new(RwLock::new(editing));
-				res_ref.write().unwrap().editor_stack.push(Arc::clone(&editing));
+                                let mut file_path = file_path
+                                    .split("/")
+                                    .map(|s| s.to_string())
+                                    .collect::<Vec<String>>();
+                                file_path.append(&mut meta.0.clone());
+                                let editing = Editing::new(file_path);
+                                let editing = Arc::new(RwLock::new(editing));
+                                res_ref
+                                    .write()
+                                    .unwrap()
+                                    .editor_stack
+                                    .push(Arc::clone(&editing));
                             }
                         }
                         _ => (),
