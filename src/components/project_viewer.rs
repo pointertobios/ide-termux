@@ -1,5 +1,7 @@
 use crate::{
-    components::component::Component, renderer::Renderer, Container, ContainerType, Framework,
+    components::{component::Component, editor::Editing},
+    renderer::Renderer,
+    Container, ContainerType, Framework,
 };
 use crossterm::{
     cursor,
@@ -22,7 +24,7 @@ pub struct ProjectViewer {
     container: Arc<RwLock<Container>>,
     path: String,
     at_line: usize,
-
+    editor_stack: Vec<Arc<RwLock<Editing>>>,
     fs: Filesystem,
 }
 
@@ -36,6 +38,7 @@ impl ProjectViewer {
             container,
             path: path.clone(),
             at_line: 0,
+            editor_stack: Vec::new(),
             fs: Filesystem::new(path),
         }));
         res.read()
@@ -93,14 +96,15 @@ impl ProjectViewer {
                                 .iter(contsize.1 - 1)
                                 .collect::<Vec<_>>();
                             let meta = &content[res_ref.read().unwrap().at_line];
-                            if meta.1 == PathType::Directory {
+                            if meta.1 == PathType::Directory { // 展开目录
                                 res_ref.write().unwrap().fs.fold_unfold(&meta.0, None);
-                            } else {
-                                let mut file_path = res_ref.read().unwrap().path.clone();
-                                for name in &meta.0 {
-                                    file_path += &("/".to_string() + name);
-                                }
-                                // TODO
+                            } else { // 打开文件
+                                let file_path = res_ref.read().unwrap().path.clone();
+				let mut file_path = file_path.split("/").map(|s| s.to_string()).collect::<Vec<String>>();
+				file_path.append(&mut meta.0.clone());
+				let editing = Editing::new(file_path);
+				let editing = Arc::new(RwLock::new(editing));
+				res_ref.write().unwrap().editor_stack.push(Arc::clone(&editing));
                             }
                         }
                         _ => (),
@@ -110,7 +114,8 @@ impl ProjectViewer {
                             let at_line = res_ref.read().unwrap().at_line;
                             let shstart = res_ref.read().unwrap().fs.showing_start;
                             if at_line >= contsize.1 - 1 {
-				res_ref.write().unwrap().fs.showing_start += at_line + 2 - contsize.1;
+                                res_ref.write().unwrap().fs.showing_start +=
+                                    at_line + 2 - contsize.1;
                                 res_ref.write().unwrap().at_line = contsize.1 - 2;
                             }
                         }

@@ -1,6 +1,7 @@
 #![feature(never_type)]
 
 mod components;
+mod named_pipe;
 mod renderer;
 mod ui;
 

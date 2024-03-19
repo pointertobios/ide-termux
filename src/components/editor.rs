@@ -145,12 +145,12 @@ pub struct Editing {
 }
 
 impl Editing {
-    pub fn new(path: Vec<String>, showing_start: usize, showing_length: usize) -> Self {
+    pub fn new(path: Vec<String>) -> Self {
         Editing {
             path,
             buffer: HashMap::new(),
-            showing_start,
-            showing_length,
+            showing_start: 0,
+            showing_length: 0,
         }
     }
 }
