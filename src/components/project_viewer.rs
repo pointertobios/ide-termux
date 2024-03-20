@@ -48,7 +48,7 @@ impl ProjectViewer {
                 NamedPipe::open_sender(String::from("FileOpen0")),
                 NamedPipe::open_sender(String::from("FileOpen1")),
             ],
-	    move_focus_sender: NamedPipe::open_sender(String::from("MoveFocusToEditor")),
+            move_focus_sender: NamedPipe::open_sender(String::from("MoveFocusToEditor")),
         }));
         res.read()
             .unwrap()
@@ -156,7 +156,13 @@ impl ProjectViewer {
                                     .blocking_read()
                                     .try_send(PipeObject::Editing(editing))
                                     .unwrap();
-			        res_ref.read().unwrap().move_focus_sender.blocking_read().try_send(PipeObject::MoveFocus).unwrap();
+                                res_ref
+                                    .read()
+                                    .unwrap()
+                                    .move_focus_sender
+                                    .blocking_read()
+                                    .try_send(PipeObject::MoveFocus)
+                                    .unwrap();
                             }
                         }
                         _ => (),

@@ -179,3 +179,9 @@ struct LineDiff {
     origin_content: Vec<char>,
     inserts: (),
 }
+
+impl LineDiff {
+    pub fn gen_lines(path: String, start_line: usize) -> Vec<LineDiff> {
+
+    }
+}
