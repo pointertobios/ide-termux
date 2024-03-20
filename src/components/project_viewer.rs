@@ -156,8 +156,8 @@ impl ProjectViewer {
                                     .blocking_read()
                                     .try_send(PipeObject::Editing(editing))
                                     .unwrap();
+			        res_ref.read().unwrap().move_focus_sender.blocking_read().try_send(PipeObject::MoveFocus).unwrap();
                             }
-			    res_ref.read().unwrap().move_focus_sender.blocking_read().try_send(PipeObject::MoveFocus).unwrap();
                         }
                         _ => (),
                     },
