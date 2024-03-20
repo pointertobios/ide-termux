@@ -159,6 +159,10 @@ impl Editing {
             showing_length: 0,
         }
     }
+
+    pub fn path(&self) -> &Vec<String> {
+        &self.path
+    }
 }
 
 struct LineDiff {

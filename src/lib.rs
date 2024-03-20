@@ -17,6 +17,7 @@ use ui::{
     framework::Framework,
     ChangeFocusEvent,
 };
+use named_pipe::{NamedPipe, PipeObject};
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -92,6 +93,9 @@ pub fn run() -> std::io::Result<()> {
 
     let fsize = framework.get_size();
     framework.set_size(fsize.0, fsize.1);
+
+    // 这个receiver接收的是project viewer在收到打开文件事件时发送的更改focus的信号
+    let mut move_focus_recver = NamedPipe::open_receiver(String::from("MoveFocusToEditor"));
     loop {
         framework.render();
         match read()? {
@@ -134,6 +138,9 @@ pub fn run() -> std::io::Result<()> {
             Event::Resize(width, height) => framework.set_size(width as usize, height as usize),
             event => framework.dispatch(ui::Event::Crossterm(event)),
         }
+	if let Ok(PipeObject::MoveFocus) = move_focus_recver.blocking_write().try_recv() {
+	    framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Right));
+	}
     }
     Ok(())
 }

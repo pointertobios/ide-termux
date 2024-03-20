@@ -55,6 +55,7 @@ impl NamedPipe {
 
 pub enum PipeObject {
     Editing(Arc<RwLock<Editing>>),
+    MoveFocus,
 }
 
 unsafe impl Sync for PipeObject {}

@@ -29,6 +29,7 @@ pub struct ProjectViewer {
     fs: Filesystem,
     editor_stack: Vec<Arc<AsyncRwLock<Editing>>>,
     file_open_sender: [Arc<AsyncRwLock<Sender<PipeObject>>>; 2],
+    move_focus_sender: Arc<AsyncRwLock<Sender<PipeObject>>>,
 }
 
 impl ProjectViewer {
@@ -47,6 +48,7 @@ impl ProjectViewer {
                 NamedPipe::open_sender(String::from("FileOpen0")),
                 NamedPipe::open_sender(String::from("FileOpen1")),
             ],
+	    move_focus_sender: NamedPipe::open_sender(String::from("MoveFocusToEditor")),
         }));
         res.read()
             .unwrap()
@@ -114,8 +116,31 @@ impl ProjectViewer {
                                     .map(|s| s.to_string())
                                     .collect::<Vec<String>>();
                                 file_path.append(&mut meta.0.clone());
-                                let editing = Editing::new(file_path);
-                                let editing = Arc::new(AsyncRwLock::new(editing));
+                                // editor stack是否存在这个文件
+                                let ind = res_ref
+                                    .read()
+                                    .unwrap()
+                                    .editor_stack
+                                    .iter()
+                                    .enumerate()
+                                    .filter_map(|(i, edi)| {
+                                        if *edi.blocking_read().path() == file_path {
+                                            Some(i)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect::<Vec<usize>>();
+                                let editing = if ind.is_empty() {
+                                    // 不存在则构造一个
+                                    let editing = Editing::new(file_path);
+                                    let editing = Arc::new(AsyncRwLock::new(editing));
+                                    editing
+                                } else {
+                                    let ind = ind[0];
+                                    let ed = res_ref.write().unwrap().editor_stack.remove(ind);
+                                    ed
+                                };
                                 if let Some(ed) = res_ref.read().unwrap().editor_stack.last() {
                                     res_ref.read().unwrap().file_open_sender[1]
                                         .blocking_write()
@@ -132,6 +157,7 @@ impl ProjectViewer {
                                     .try_send(PipeObject::Editing(editing))
                                     .unwrap();
                             }
+			    res_ref.read().unwrap().move_focus_sender.blocking_read().try_send(PipeObject::MoveFocus).unwrap();
                         }
                         _ => (),
                     },
