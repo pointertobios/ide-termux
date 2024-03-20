@@ -27,6 +27,9 @@ pub struct Editor {
     id: usize,
     file: Option<Arc<AsyncRwLock<Editing>>>,
     mode: EditorMode,
+    /// 接收ProjectViewer发送的PipeObject::Editing(Editing)
+    ///
+    /// 总是渲染管道中最新发送的Editing对象
     file_open_receiver: Arc<AsyncRwLock<Receiver<PipeObject>>>,
 }
 
@@ -152,9 +155,13 @@ pub struct Editing {
 
 impl Editing {
     pub fn new(path: Vec<String>) -> Self {
+	let mut map = HashMap::new();
+	
+	let mut line = 1;
+	
         Editing {
             path,
-            buffer: HashMap::new(),
+            buffer: map,
             showing_start: 0,
             showing_length: 0,
         }
