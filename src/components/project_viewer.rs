@@ -28,7 +28,7 @@ pub struct ProjectViewer {
     at_line: usize,
     fs: Filesystem,
     editor_stack: Vec<Arc<AsyncRwLock<Editing>>>,
-    file_open_sender: Arc<AsyncRwLock<Sender<PipeObject>>>,
+    file_open_sender: [Arc<AsyncRwLock<Sender<PipeObject>>>; 2],
 }
 
 impl ProjectViewer {
@@ -43,7 +43,10 @@ impl ProjectViewer {
             at_line: 0,
             editor_stack: Vec::new(),
             fs: Filesystem::new(path),
-            file_open_sender: NamedPipe::open_sender(String::from("FileOpen")),
+            file_open_sender: [
+                NamedPipe::open_sender(String::from("FileOpen0")),
+                NamedPipe::open_sender(String::from("FileOpen1")),
+            ],
         }));
         res.read()
             .unwrap()
@@ -113,15 +116,18 @@ impl ProjectViewer {
                                 file_path.append(&mut meta.0.clone());
                                 let editing = Editing::new(file_path);
                                 let editing = Arc::new(AsyncRwLock::new(editing));
+                                if let Some(ed) = res_ref.read().unwrap().editor_stack.last() {
+                                    res_ref.read().unwrap().file_open_sender[1]
+                                        .blocking_write()
+                                        .try_send(PipeObject::Editing(Arc::clone(ed)))
+                                        .unwrap();
+                                }
                                 res_ref
                                     .write()
                                     .unwrap()
                                     .editor_stack
                                     .push(Arc::clone(&editing));
-                                res_ref
-                                    .read()
-                                    .unwrap()
-                                    .file_open_sender
+                                res_ref.read().unwrap().file_open_sender[0]
                                     .blocking_read()
                                     .try_send(PipeObject::Editing(editing))
                                     .unwrap();

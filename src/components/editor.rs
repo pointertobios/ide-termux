@@ -39,7 +39,7 @@ impl Editor {
             id,
             file: None,
             mode: EditorMode::Command,
-            file_open_receiver: NamedPipe::open_receiver(String::from("FileOpen")),
+            file_open_receiver: NamedPipe::open_receiver(format!("FileOpen{}", id)),
         }));
         res.read()
             .unwrap()
