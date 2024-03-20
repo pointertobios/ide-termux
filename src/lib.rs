@@ -1,4 +1,5 @@
 #![feature(never_type)]
+#![feature(bufread_skip_until)]
 
 mod components;
 mod named_pipe;

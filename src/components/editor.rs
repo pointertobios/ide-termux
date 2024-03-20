@@ -1,5 +1,7 @@
 use crossterm::style::Stylize;
 use std::{
+    io::{BufReader, BufRead},
+    fs::OpenOptions,
     collections::HashMap,
     iter,
     process::exit,
@@ -155,16 +157,36 @@ pub struct Editing {
 
 impl Editing {
     pub fn new(path: Vec<String>) -> Self {
-	let mut map = HashMap::new();
-	
-	let mut line = 1;
-	
         Editing {
             path,
-            buffer: map,
+            buffer: HashMap::new(),
             showing_start: 0,
             showing_length: 0,
         }
+    }
+
+    pub fn load(&mut self, start: usize, count: usize) {
+	let mut path = String::new();
+	for entry in &self.path {
+	    path += "/";
+	    path += entry;
+	}
+	let mut i = 0;
+	for line in LineDiff::gen_lines(path, start, count) {
+	    self.buffer.insert(start + i, line);
+	    i += 1;
+	}
+    }
+
+    pub fn get<'a>(&mut self, start: usize, count: usize) -> Vec<&'a LineDiff> {
+	let mut res = Vec::new();
+	for i in start..start + count {
+	    if { self.buffer.contains_key(&i) } {
+		self.load(i, 1);
+	    }
+	    res.push(self.buffer.get(&i).unwrap());
+	}
+	res
     }
 
     pub fn path(&self) -> &Vec<String> {
@@ -175,13 +197,53 @@ impl Editing {
 struct LineDiff {
     origin_offset: usize,
     /// 对于一个文件中原有的行，这个vec总是以换行结尾，即使是空行
-    /// 当这个vec长度为0时，说明是新加入的行
+    /// 新增行此成员为空
     origin_content: Vec<char>,
-    inserts: (),
+    /// 编辑中的差异信息
+    /// .0：更改的位置
+    /// .1：增加的字符vec
+    /// .2：删除插入点后的字符数量
+    changes: Vec<(usize, Vec<char>, usize)>,
 }
 
 impl LineDiff {
-    pub fn gen_lines(path: String, start_line: usize) -> Vec<LineDiff> {
-
+    pub fn gen_lines(path: String, start_line: usize, count:usize) -> Vec<LineDiff> {
+	// 路径是启动时加载目录所获得，忽略返回Err()的情况
+	let file = OpenOptions::new().read(true).open(&path).unwrap();
+	let mut reader = BufReader::new(file);
+	let mut res = Vec::new();
+	let mut line = 1;
+	let mut bytes = 0;
+	// 跳过start_line前的行
+	for i in 0..start_line-1 {
+	    let l = match reader.skip_until(b'\n') {
+		Ok(n) => n,
+		Err(_) => 0,
+	    };
+	    if i + 1 != start_line - 1 && l == 0 {
+		return res;
+	    }
+	    bytes += l;
+	    line += 1;
+	}
+	// 构造需要显示的行
+	for i in 0..count {
+	    let mut buf = Vec::new();
+	    let l = match reader.read_until(b'\n', &mut buf) {
+		Ok(n) => n,
+		Err(_) => 0,
+	    };
+	    if i + 1 != count && l == 0 {
+		break;
+	    }
+	    res.push(LineDiff {
+		origin_offset: bytes,
+		origin_content: String::from_utf8(buf).unwrap().chars().collect::<Vec<char>>(),
+		changes: Vec::new(),
+	    });
+	    bytes += l;
+	    line += 1;
+	}
+	res
     }
 }
