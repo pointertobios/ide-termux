@@ -1,4 +1,4 @@
-use crossterm::style::Stylize;
+use crossterm::{style::{Color, Stylize}, event::{KeyCode, Event, KeyEvent, KeyModifiers}};
 use std::{
     collections::HashMap,
     fs::OpenOptions,
@@ -20,6 +20,7 @@ use crate::{
     },
 };
 
+#[derive(Clone, Copy)]
 enum EditorMode {
     Command,
     Edit,
@@ -34,6 +35,7 @@ pub struct Editor {
     ///
     /// 总是渲染管道中最新发送的Editing对象
     file_open_receiver: Arc<AsyncRwLock<Receiver<PipeObject>>>,
+    cursor: (usize, usize),
 }
 
 impl Editor {
@@ -46,6 +48,7 @@ impl Editor {
             file: None,
             mode: EditorMode::Command,
             file_open_receiver: NamedPipe::open_receiver(format!("FileOpen{}", id)),
+	    cursor: (0, 1),
         }));
         res.read()
             .unwrap()
@@ -59,7 +62,63 @@ impl Editor {
             .container
             .write()
             .unwrap()
-            .set_handler(Box::new(move |event, contsize| {}));
+            .set_handler(Box::new(move |event, contsize| match event {
+		Event::Key(KeyEvent{ code, modifiers, .. }) => {
+		    if modifiers != KeyModifiers::NONE {
+			return;
+		    }
+		    match code {
+			KeyCode::Up => {
+			    let mode = res_ref.read().unwrap().mode;
+			    match mode {
+				EditorMode::Command => {
+				    if let Some(file) = &res_ref.read().unwrap().file {
+					if file.blocking_read().showing_start > 1 {
+					    file.blocking_write().showing_start -= 1;
+					}
+				    }
+				}
+				EditorMode::Edit => {
+				    if res_ref.read().unwrap().cursor.1 > 1 {
+					res_ref.write().unwrap().cursor.1 -= 1;
+				    } else {
+				        if let Some(file) = &res_ref.read().unwrap().file {
+					    if file.blocking_read().showing_start > 0 {
+					        file.blocking_write().showing_start -= 1;
+					    }
+				        }
+				    }
+				}
+			    }
+			}
+			KeyCode::Down => {
+			    let mode = res_ref.read().unwrap().mode;
+			    match mode {
+				EditorMode::Command => {
+				    if let Some(file) = &res_ref.read().unwrap().file {
+					if file.blocking_read().showing_start < contsize.1 {
+					    file.blocking_write().showing_start += 1;
+					}
+				    }
+				}
+				EditorMode::Edit => {
+				    if res_ref.read().unwrap().cursor.1 < contsize.1 {
+					res_ref.write().unwrap().cursor.1 += 1;
+				    } else {
+				        if let Some(file) = &res_ref.read().unwrap().file {
+					    if file.blocking_read().showing_start < contsize.1 {
+					        file.blocking_write().showing_start += 1;
+					    }
+				        }
+				    }
+				}
+			    }
+			}
+			_ => (),
+		    }
+		}
+		_ => (),
+	    }));
         res
     }
 }
@@ -168,14 +227,14 @@ impl Component for Editor {
                             &mut iter::repeat(' ').take(size.0 - rawl).collect::<Vec<char>>(),
                         );
                     }
-                    renderer.set_section(0, linen, displaying.iter().collect::<String>().reset());
+                    renderer.set_section(0, linen, displaying.iter().collect::<String>().on(Color::Rgb{r: 0x10, g: 0x10, b: 0x20}));
                     linen += 1;
                 }
             }
             while linen < size.1 {
                 let l = iter::repeat(' ').take(size.0).collect::<Vec<_>>();
                 let l = String::from_iter(&mut l.iter());
-                renderer.set_section(0, linen, l.reset());
+                renderer.set_section(0, linen, l.on(Color::Rgb{r: 0x10, g: 0x10, b: 0x20}));
                 linen += 1;
             }
         }

@@ -59,14 +59,15 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
+	queue!(stdout, cursor::Hide);
         if let Some(container) = &self.container {
             let renderer = Renderer::new(0, 0, self.width, self.height);
             let location = container.read().unwrap().render(&renderer);
             if location.0 {
                 queue!(
                     stdout,
+                    MoveTo(location.1 .0 as u16, location.1 .1 as u16),
                     cursor::Show,
-                    MoveTo(location.1 .0 as u16, location.1 .1 as u16)
                 )
                 .unwrap();
             } else {
