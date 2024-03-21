@@ -4,8 +4,8 @@ use crossterm::{
 };
 
 pub struct Renderer {
-    x: usize,
-    y: usize,
+    pub x: usize,
+    pub y: usize,
     width: usize,
     height: usize,
 }

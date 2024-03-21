@@ -4,12 +4,11 @@ use std::{
     fs::OpenOptions,
     io::{BufRead, BufReader},
     iter,
-    os::linux::raw,
     process::exit,
     sync::{Arc, RwLock},
 };
 use tokio::sync::{mpsc::Receiver, RwLock as AsyncRwLock};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 
 use crate::{
     components::component::Component,
@@ -54,6 +53,13 @@ impl Editor {
             .write()
             .unwrap()
             .set_type(ContainerType::Editor(Arc::clone(&res)));
+        let res_ref = Arc::clone(&res);
+        res.read()
+            .unwrap()
+            .container
+            .write()
+            .unwrap()
+            .set_handler(Box::new(move |event, contsize| {}));
         res
     }
 }
@@ -137,6 +143,7 @@ impl Component for Editor {
             renderer.set_section(0, 0, title.dark_red().on_dark_blue());
         }
         // 内容
+        let mut cursor_loc = (0, 1);
         if size.0 > 1 && size.1 > 1 {
             let mut linen = 1;
             if let Some(file) = &self.file {
@@ -172,7 +179,9 @@ impl Component for Editor {
                 linen += 1;
             }
         }
-        (false, (0, 0))
+        cursor_loc.0 += renderer.x;
+        cursor_loc.1 += renderer.y;
+        (true, cursor_loc)
     }
 }
 
@@ -219,6 +228,7 @@ impl Editing {
         for i in self.showing_start..self.showing_start + self.showing_length {
             let b = self.buffer.contains_key(&i);
             if b {
+                // TODO 为了简便而这样写，后面需要改进（这个函数所调用的LineDiff::gen_lines函数是从文件开头开始扫描，而不是在适当的时机直接跳过）
                 self.load(i, 1);
             }
             let line = if let Some(l) = self.buffer.get(&i) {

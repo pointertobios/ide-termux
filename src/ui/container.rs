@@ -198,7 +198,7 @@ impl Container {
                         let size = cont.read().unwrap().get_size();
                         let location = cont.read().unwrap().get_location();
                         let subrend =
-                            Renderer::new(self.x + location.0, self.y + location.1, size.0, size.1);
+                            Renderer::new(renderer.x + location.0, renderer.y + location.1, size.0, size.1);
                         let r = cont.read().unwrap().render(&subrend);
                         if cont.read().unwrap().focused {
                             res = Some(r);
