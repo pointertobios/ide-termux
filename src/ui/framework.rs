@@ -36,7 +36,12 @@ pub struct Framework {
 impl Framework {
     pub fn new() -> Self {
         enable_raw_mode().unwrap();
-        queue!(std::io::stdout(), EnterAlternateScreen, cursor::Hide).unwrap();
+        queue!(
+            std::io::stdout(),    //
+            EnterAlternateScreen, //
+            cursor::Hide
+        )
+        .unwrap();
         std::io::stdout().flush().unwrap();
         let mut framework = Framework {
             width: window_size().unwrap().columns as usize,

@@ -1,13 +1,15 @@
 use crossterm::style::Stylize;
 use std::{
-    io::{BufReader, BufRead},
-    fs::OpenOptions,
     collections::HashMap,
+    fs::OpenOptions,
+    io::{BufRead, BufReader},
     iter,
+    os::linux::raw,
     process::exit,
     sync::{Arc, RwLock},
 };
 use tokio::sync::{mpsc::Receiver, RwLock as AsyncRwLock};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::{
     components::component::Component,
@@ -135,8 +137,34 @@ impl Component for Editor {
             renderer.set_section(0, 0, title.dark_red().on_dark_blue());
         }
         // 内容
-        if size.0 > 1 {
+        if size.0 > 1 && size.1 > 1 {
             let mut linen = 1;
+            if let Some(file) = &self.file {
+                file.blocking_write().showing_length = size.1;
+                for line in file.blocking_write().get() {
+                    let mut lining = line.origin_content;
+                    if !lining.is_empty() && *lining.last().unwrap() == '\n' {
+                        lining.pop();
+                    }
+                    let mut displaying = Vec::new();
+                    let mut rawl = 0;
+                    while rawl < size.0 {
+                        if lining.is_empty() {
+                            break;
+                        }
+                        let ch = lining.remove(0);
+                        rawl += UnicodeWidthChar::width(ch).unwrap();
+                        displaying.push(ch);
+                    }
+                    if rawl < size.0 {
+                        displaying.append(
+                            &mut iter::repeat(' ').take(size.0 - rawl).collect::<Vec<char>>(),
+                        );
+                    }
+                    renderer.set_section(0, linen, displaying.iter().collect::<String>().reset());
+                    linen += 1;
+                }
+            }
             while linen < size.1 {
                 let l = iter::repeat(' ').take(size.0).collect::<Vec<_>>();
                 let l = String::from_iter(&mut l.iter());
@@ -157,36 +185,51 @@ pub struct Editing {
 
 impl Editing {
     pub fn new(path: Vec<String>) -> Self {
-        Editing {
+        let mut res = Editing {
             path,
             buffer: HashMap::new(),
-            showing_start: 0,
+            showing_start: 1,
             showing_length: 0,
-        }
+        };
+        res.load(1, 200);
+        res
     }
 
     pub fn load(&mut self, start: usize, count: usize) {
-	let mut path = String::new();
-	for entry in &self.path {
-	    path += "/";
-	    path += entry;
-	}
-	let mut i = 0;
-	for line in LineDiff::gen_lines(path, start, count) {
-	    self.buffer.insert(start + i, line);
-	    i += 1;
-	}
+        if start < 1 {
+            return;
+        }
+        let mut path = String::new();
+        for entry in &self.path {
+            path += "/";
+            path += entry;
+        }
+        let mut i = 0;
+        for line in LineDiff::gen_lines(path, start, count) {
+            self.buffer.insert(start + i, line);
+            i += 1;
+        }
     }
 
-    pub fn get<'a>(&mut self, start: usize, count: usize) -> Vec<&'a LineDiff> {
-	let mut res = Vec::new();
-	for i in start..start + count {
-	    if { self.buffer.contains_key(&i) } {
-		self.load(i, 1);
-	    }
-	    res.push(self.buffer.get(&i).unwrap());
-	}
-	res
+    pub fn get(&mut self) -> Vec<LineDiff> {
+        let mut res = Vec::new();
+        if self.showing_start < 1 {
+            return res;
+        }
+        for i in self.showing_start..self.showing_start + self.showing_length {
+            let b = self.buffer.contains_key(&i);
+            if b {
+                self.load(i, 1);
+            }
+            let line = if let Some(l) = self.buffer.get(&i) {
+                l.clone()
+            } else {
+                break;
+            };
+            // println!("{:?}", line);
+            res.push(line);
+        }
+        res
     }
 
     pub fn path(&self) -> &Vec<String> {
@@ -194,7 +237,8 @@ impl Editing {
     }
 }
 
-struct LineDiff {
+#[derive(Clone, Debug)]
+pub struct LineDiff {
     origin_offset: usize,
     /// 对于一个文件中原有的行，这个vec总是以换行结尾，即使是空行
     /// 新增行此成员为空
@@ -203,47 +247,52 @@ struct LineDiff {
     /// .0：更改的位置
     /// .1：增加的字符vec
     /// .2：删除插入点后的字符数量
+    ///
+    /// 说明：当前行尾的换行若被移除，说明下一行合并到这一行
     changes: Vec<(usize, Vec<char>, usize)>,
 }
 
 impl LineDiff {
-    pub fn gen_lines(path: String, start_line: usize, count:usize) -> Vec<LineDiff> {
-	// 路径是启动时加载目录所获得，忽略返回Err()的情况
-	let file = OpenOptions::new().read(true).open(&path).unwrap();
-	let mut reader = BufReader::new(file);
-	let mut res = Vec::new();
-	let mut line = 1;
-	let mut bytes = 0;
-	// 跳过start_line前的行
-	for i in 0..start_line-1 {
-	    let l = match reader.skip_until(b'\n') {
-		Ok(n) => n,
-		Err(_) => 0,
-	    };
-	    if i + 1 != start_line - 1 && l == 0 {
-		return res;
-	    }
-	    bytes += l;
-	    line += 1;
-	}
-	// 构造需要显示的行
-	for i in 0..count {
-	    let mut buf = Vec::new();
-	    let l = match reader.read_until(b'\n', &mut buf) {
-		Ok(n) => n,
-		Err(_) => 0,
-	    };
-	    if i + 1 != count && l == 0 {
-		break;
-	    }
-	    res.push(LineDiff {
-		origin_offset: bytes,
-		origin_content: String::from_utf8(buf).unwrap().chars().collect::<Vec<char>>(),
-		changes: Vec::new(),
-	    });
-	    bytes += l;
-	    line += 1;
-	}
-	res
+    pub fn gen_lines(path: String, start_line: usize, count: usize) -> Vec<LineDiff> {
+        // 路径是启动时加载目录所获得，忽略返回Err()的情况
+        let file = OpenOptions::new().read(true).open(&path).unwrap();
+        let mut reader = BufReader::new(file);
+        let mut res = Vec::new();
+        let mut line = 1;
+        let mut bytes = 0;
+        // 跳过start_line前的行
+        for i in 0..start_line - 1 {
+            let l = match reader.skip_until(b'\n') {
+                Ok(n) => n,
+                Err(_) => 0,
+            };
+            if i + 1 != start_line - 1 && l == 0 {
+                return res;
+            }
+            bytes += l;
+            line += 1;
+        }
+        // 构造需要显示的行
+        for i in 0..count {
+            let mut buf = Vec::new();
+            let l = match reader.read_until(b'\n', &mut buf) {
+                Ok(n) => n,
+                Err(_) => 0,
+            };
+            if i + 1 != count && l == 0 {
+                break;
+            }
+            res.push(LineDiff {
+                origin_offset: bytes,
+                origin_content: String::from_utf8(buf)
+                    .unwrap()
+                    .chars()
+                    .collect::<Vec<char>>(),
+                changes: Vec::new(),
+            });
+            bytes += l;
+            line += 1;
+        }
+        res
     }
 }
