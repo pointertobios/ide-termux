@@ -103,6 +103,36 @@ impl Editor {
                                 }
                             }
                         }
+                        KeyCode::Left => {
+                            let mode = res_ref.read().unwrap().mode;
+                            match mode {
+                                EditorMode::Command => {
+                                    res_ref.read().unwrap().scroll_left(1);
+                                }
+                                EditorMode::Edit => {
+                                    if res_ref.read().unwrap().cursor.0 > 0 {
+                                        res_ref.write().unwrap().cursor.0 -= 1;
+                                    } else {
+                                        res_ref.read().unwrap().scroll_left(1);
+                                    }
+                                }
+                            }
+                        }
+                        KeyCode::Right => {
+                            let mode = res_ref.read().unwrap().mode;
+                            match mode {
+                                EditorMode::Command => {
+                                    res_ref.read().unwrap().scroll_right(1);
+                                }
+                                EditorMode::Edit => {
+                                    if res_ref.read().unwrap().cursor.0 < contsize.0 - 1 {
+                                        res_ref.write().unwrap().cursor.0 += 1;
+                                    } else {
+                                        res_ref.read().unwrap().scroll_right(1);
+                                    }
+                                }
+                            }
+                        }
                         _ => (),
                     }
                 }
@@ -125,9 +155,27 @@ impl Editor {
         for _ in 0..count {
             if let Some(file) = &self.file {
                 let sst = file.blocking_read().showing_start;
-                if !file.blocking_read().eof(sst) {
+                if !file.blocking_read().eof(sst + 3) {
                     file.blocking_write().showing_start += 1;
                 }
+            }
+        }
+    }
+
+    fn scroll_left(&self, count: usize) {
+        for _ in 0..count {
+            if let Some(file) = &self.file {
+                if file.blocking_read().line_start > 0 {
+                    file.blocking_write().line_start -= 2;
+                }
+            }
+        }
+    }
+
+    fn scroll_right(&self, count: usize) {
+        for _ in 0..count {
+            if let Some(file) = &self.file {
+                file.blocking_write().line_start += 2;
             }
         }
     }
@@ -159,9 +207,14 @@ impl Component for Editor {
         } else {
             format!(" Editor {}", self.id)
         };
+        let mode = match self.mode {
+            EditorMode::Command => "Command".to_string(),
+            EditorMode::Edit => "Editing".to_string(),
+        };
         // 标题
         if !focused {
             let title = title.chars().collect::<Vec<_>>();
+            let mut mode = mode.chars().collect::<Vec<_>>();
             if size.0 == 1 {
                 let mut title = if title.len() > size.1 {
                     title.split_at(size.1).0.to_vec()
@@ -179,35 +232,38 @@ impl Component for Editor {
                     renderer.set(0, i, title[i].white().on_dark_grey());
                 }
             } else {
-                let mut title = if title.len() > size.0 {
-                    title.split_at(size.1).0.to_vec()
+                let mut title = if title.len() > size.0 - mode.len() - 1 {
+                    title.split_at(size.1 - mode.len() - 1).0.to_vec()
                 } else {
                     title
                 };
-                if title.len() < size.0 {
+                if title.len() < size.0 - mode.len() - 1 {
                     title.append(
                         &mut iter::repeat(' ')
-                            .take(size.0 - title.len())
+                            .take(size.0 - title.len() - mode.len())
                             .collect::<Vec<_>>(),
                     );
                 }
+                title.append(&mut mode);
                 let title = String::from_iter(title.iter());
                 renderer.set_section(0, 0, title.white().on_dark_grey());
             }
         } else {
             let title = title.chars().collect::<Vec<_>>();
-            let mut title = if title.len() > size.0 {
-                title.split_at(size.1).0.to_vec()
+            let mut mode = mode.chars().collect::<Vec<_>>();
+            let mut title = if title.len() > size.0 - mode.len() - 1 {
+                title.split_at(size.1 - mode.len() - 1).0.to_vec()
             } else {
                 title
             };
-            if title.len() < size.0 {
+            if title.len() < size.0 - mode.len() - 1 {
                 title.append(
                     &mut iter::repeat(' ')
-                        .take(size.0 - title.len())
+                        .take(size.0 - title.len() - mode.len())
                         .collect::<Vec<_>>(),
                 );
             }
+            title.append(&mut mode);
             let title = String::from_iter(title.iter());
             renderer.set_section(0, 0, title.dark_red().on_dark_blue());
         }
@@ -217,6 +273,7 @@ impl Component for Editor {
             let mut linen = 1;
             if let Some(file) = &self.file {
                 file.blocking_write().showing_length = size.1;
+                let lnst = file.blocking_read().line_start;
                 for line in file.blocking_write().get() {
                     let mut lining = line.origin_content;
                     if !lining.is_empty() && *lining.last().unwrap() == '\n' {
@@ -224,6 +281,11 @@ impl Component for Editor {
                     }
                     let mut displaying = Vec::new();
                     let mut rawl = 0;
+                    while !lining.is_empty() && rawl < lnst {
+                        let ch = lining.remove(0);
+                        rawl += UnicodeWidthChar::width(ch).unwrap();
+                    }
+                    rawl = 0;
                     while rawl < size.0 {
                         if lining.is_empty() {
                             break;
@@ -275,6 +337,7 @@ pub struct Editing {
     buffer: HashMap<usize, LineDiff>,
     showing_start: usize,
     showing_length: usize,
+    line_start: usize,
 }
 
 impl Editing {
@@ -284,6 +347,7 @@ impl Editing {
             buffer: HashMap::new(),
             showing_start: 1,
             showing_length: 0,
+            line_start: 0,
         };
         res.load(1, 200);
         res
@@ -336,7 +400,7 @@ impl Editing {
             path += "/";
             path += entry;
         }
-        LineDiff::gen_lines(path, line, 1).is_empty()
+        LineDiff::gen_lines(path, line - 1, 1).is_empty()
     }
 }
 

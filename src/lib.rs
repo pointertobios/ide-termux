@@ -13,12 +13,12 @@ use components::{
     project_viewer::ProjectViewer,
     terminal::Terminal,
 };
+use named_pipe::{NamedPipe, PipeObject};
 use ui::{
     container::{Container, ContainerType},
     framework::Framework,
     ChangeFocusEvent,
 };
-use named_pipe::{NamedPipe, PipeObject};
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -139,9 +139,9 @@ pub fn run() -> std::io::Result<()> {
             Event::Resize(width, height) => framework.set_size(width as usize, height as usize),
             event => framework.dispatch(ui::Event::Crossterm(event)),
         }
-	if let Ok(PipeObject::MoveFocus) = move_focus_recver.blocking_write().try_recv() {
-	    framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Right));
-	}
+        if let Ok(PipeObject::MoveFocus) = move_focus_recver.blocking_write().try_recv() {
+            framework.dispatch(ui::Event::ChangeFocus(ChangeFocusEvent::Right));
+        }
     }
     Ok(())
 }
