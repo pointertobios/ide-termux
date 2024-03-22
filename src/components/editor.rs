@@ -1,4 +1,7 @@
-use crossterm::{style::{Color, Stylize}, event::{KeyCode, Event, KeyEvent, KeyModifiers}};
+use crossterm::{
+    event::{Event, KeyCode, KeyEvent, KeyModifiers},
+    style::{Color, Stylize},
+};
 use std::{
     collections::HashMap,
     fs::OpenOptions,
@@ -48,7 +51,7 @@ impl Editor {
             file: None,
             mode: EditorMode::Command,
             file_open_receiver: NamedPipe::open_receiver(format!("FileOpen{}", id)),
-	    cursor: (0, 1),
+            cursor: (0, 1),
         }));
         res.read()
             .unwrap()
@@ -63,63 +66,70 @@ impl Editor {
             .write()
             .unwrap()
             .set_handler(Box::new(move |event, contsize| match event {
-		Event::Key(KeyEvent{ code, modifiers, .. }) => {
-		    if modifiers != KeyModifiers::NONE {
-			return;
-		    }
-		    match code {
-			KeyCode::Up => {
-			    let mode = res_ref.read().unwrap().mode;
-			    match mode {
-				EditorMode::Command => {
-				    if let Some(file) = &res_ref.read().unwrap().file {
-					if file.blocking_read().showing_start > 1 {
-					    file.blocking_write().showing_start -= 1;
-					}
-				    }
-				}
-				EditorMode::Edit => {
-				    if res_ref.read().unwrap().cursor.1 > 1 {
-					res_ref.write().unwrap().cursor.1 -= 1;
-				    } else {
-				        if let Some(file) = &res_ref.read().unwrap().file {
-					    if file.blocking_read().showing_start > 0 {
-					        file.blocking_write().showing_start -= 1;
-					    }
-				        }
-				    }
-				}
-			    }
-			}
-			KeyCode::Down => {
-			    let mode = res_ref.read().unwrap().mode;
-			    match mode {
-				EditorMode::Command => {
-				    if let Some(file) = &res_ref.read().unwrap().file {
-					if file.blocking_read().showing_start < contsize.1 {
-					    file.blocking_write().showing_start += 1;
-					}
-				    }
-				}
-				EditorMode::Edit => {
-				    if res_ref.read().unwrap().cursor.1 < contsize.1 {
-					res_ref.write().unwrap().cursor.1 += 1;
-				    } else {
-				        if let Some(file) = &res_ref.read().unwrap().file {
-					    if file.blocking_read().showing_start < contsize.1 {
-					        file.blocking_write().showing_start += 1;
-					    }
-				        }
-				    }
-				}
-			    }
-			}
-			_ => (),
-		    }
-		}
-		_ => (),
-	    }));
+                Event::Key(KeyEvent {
+                    code, modifiers, ..
+                }) => {
+                    if modifiers != KeyModifiers::NONE {
+                        return;
+                    }
+                    match code {
+                        KeyCode::Up => {
+                            let mode = res_ref.read().unwrap().mode;
+                            match mode {
+                                EditorMode::Command => {
+                                    res_ref.read().unwrap().scroll_up(1);
+                                }
+                                EditorMode::Edit => {
+                                    if res_ref.read().unwrap().cursor.1 > 1 {
+                                        res_ref.write().unwrap().cursor.1 -= 1;
+                                    } else {
+                                        res_ref.read().unwrap().scroll_up(1);
+                                    }
+                                }
+                            }
+                        }
+                        KeyCode::Down => {
+                            let mode = res_ref.read().unwrap().mode;
+                            match mode {
+                                EditorMode::Command => {
+                                    res_ref.read().unwrap().scroll_down(1);
+                                }
+                                EditorMode::Edit => {
+                                    if res_ref.read().unwrap().cursor.1 < contsize.1 {
+                                        res_ref.write().unwrap().cursor.1 += 1;
+                                    } else {
+                                        res_ref.read().unwrap().scroll_down(1);
+                                    }
+                                }
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+                _ => (),
+            }));
         res
+    }
+
+    fn scroll_up(&self, count: usize) {
+        for _ in 0..count {
+            if let Some(file) = &self.file {
+                if file.blocking_read().showing_start > 1 {
+                    file.blocking_write().showing_start -= 1;
+                }
+            }
+        }
+    }
+
+    fn scroll_down(&self, count: usize) {
+        for _ in 0..count {
+            if let Some(file) = &self.file {
+                let sst = file.blocking_read().showing_start;
+                if !file.blocking_read().eof(sst) {
+                    file.blocking_write().showing_start += 1;
+                }
+            }
+        }
     }
 }
 
@@ -227,14 +237,30 @@ impl Component for Editor {
                             &mut iter::repeat(' ').take(size.0 - rawl).collect::<Vec<char>>(),
                         );
                     }
-                    renderer.set_section(0, linen, displaying.iter().collect::<String>().on(Color::Rgb{r: 0x10, g: 0x10, b: 0x20}));
+                    renderer.set_section(
+                        0,
+                        linen,
+                        displaying.iter().collect::<String>().on(Color::Rgb {
+                            r: 0x10,
+                            g: 0x10,
+                            b: 0x20,
+                        }),
+                    );
                     linen += 1;
                 }
             }
             while linen < size.1 {
                 let l = iter::repeat(' ').take(size.0).collect::<Vec<_>>();
                 let l = String::from_iter(&mut l.iter());
-                renderer.set_section(0, linen, l.on(Color::Rgb{r: 0x10, g: 0x10, b: 0x20}));
+                renderer.set_section(
+                    0,
+                    linen,
+                    l.on(Color::Rgb {
+                        r: 0x10,
+                        g: 0x10,
+                        b: 0x20,
+                    }),
+                );
                 linen += 1;
             }
         }
@@ -286,7 +312,7 @@ impl Editing {
         }
         for i in self.showing_start..self.showing_start + self.showing_length {
             let b = self.buffer.contains_key(&i);
-            if b {
+            if !b {
                 // TODO 为了简便而这样写，后面需要改进（这个函数所调用的LineDiff::gen_lines函数是从文件开头开始扫描，而不是在适当的时机直接跳过）
                 self.load(i, 1);
             }
@@ -295,7 +321,6 @@ impl Editing {
             } else {
                 break;
             };
-            // println!("{:?}", line);
             res.push(line);
         }
         res
@@ -303,6 +328,15 @@ impl Editing {
 
     pub fn path(&self) -> &Vec<String> {
         &self.path
+    }
+
+    pub fn eof(&self, line: usize) -> bool {
+        let mut path = String::new();
+        for entry in &self.path {
+            path += "/";
+            path += entry;
+        }
+        LineDiff::gen_lines(path, line, 1).is_empty()
     }
 }
 
@@ -327,7 +361,6 @@ impl LineDiff {
         let file = OpenOptions::new().read(true).open(&path).unwrap();
         let mut reader = BufReader::new(file);
         let mut res = Vec::new();
-        let mut line = 1;
         let mut bytes = 0;
         // 跳过start_line前的行
         for i in 0..start_line - 1 {
@@ -339,7 +372,6 @@ impl LineDiff {
                 return res;
             }
             bytes += l;
-            line += 1;
         }
         // 构造需要显示的行
         for i in 0..count {
@@ -360,7 +392,6 @@ impl LineDiff {
                 changes: Vec::new(),
             });
             bytes += l;
-            line += 1;
         }
         res
     }
