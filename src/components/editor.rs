@@ -11,7 +11,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::sync::{mpsc::Receiver, RwLock as AsyncRwLock};
-use unicode_width::UnicodeWidthChar;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::{
     components::component::Component,
@@ -278,7 +278,7 @@ impl Component for Editor {
                 file.blocking_write().showing_length = size.1;
                 let lnst = file.blocking_read().line_start;
                 for line in file.blocking_write().get() {
-                    let mut lining = line.origin_content;
+                    let mut lining = line.origin_content.clone();
                     if !lining.is_empty() && *lining.last().unwrap() == '\n' {
                         lining.pop();
                     }
@@ -297,6 +297,13 @@ impl Component for Editor {
                         rawl += UnicodeWidthChar::width(ch).unwrap();
                         displaying.push(ch);
                     }
+		    let linelen = line.len();
+		    if linen == cursor_loc.1 && linelen < cursor_loc.0 {
+			cursor_loc.0 = linelen;
+		    }
+		    let linestr = linelen.to_string();
+		    rawl += UnicodeWidthStr::width(linestr.as_str());
+		    displaying.append(&mut linestr.chars().collect::<Vec<_>>());
                     if rawl < size.0 {
                         displaying.append(
                             &mut iter::repeat(' ').take(size.0 - rawl).collect::<Vec<char>>(),
@@ -382,6 +389,14 @@ impl Editing {
             self.buffer.insert(start + i, line);
             i += 1;
         }
+    }
+
+    pub fn len_of_line(&self, line: usize) -> usize {
+	if let Some(l) = self.buffer.get(&line) {
+	    line.len()
+	} else {
+	    0
+	}
     }
 
     pub fn get(&mut self) -> Vec<LineDiff> {
@@ -473,5 +488,9 @@ impl LineDiff {
             bytes += l;
         }
         res
+    }
+
+    pub fn len(&self) -> usize {
+	UnicodeWidthStr::width(String::from_iter(self.origin_content.iter()).as_str())
     }
 }
