@@ -67,75 +67,78 @@ impl Editor {
             .unwrap()
             .set_handler(Box::new(move |event, contsize| match event {
                 Event::Key(KeyEvent {
-                    code, modifiers, ..
-                }) => {
-                    if modifiers != KeyModifiers::NONE {
-                        return;
-                    }
-                    match code {
-                        KeyCode::Up => {
-                            let mode = res_ref.read().unwrap().mode;
-                            match mode {
-                                EditorMode::Command => {
+                    code,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => match code {
+                    KeyCode::Up => {
+                        let mode = res_ref.read().unwrap().mode;
+                        match mode {
+                            EditorMode::Command => {
+                                res_ref.read().unwrap().scroll_up(1);
+                            }
+                            EditorMode::Edit => {
+                                if res_ref.read().unwrap().cursor.1 > 1 {
+                                    res_ref.write().unwrap().cursor.1 -= 1;
+                                } else {
                                     res_ref.read().unwrap().scroll_up(1);
                                 }
-                                EditorMode::Edit => {
-                                    if res_ref.read().unwrap().cursor.1 > 1 {
-                                        res_ref.write().unwrap().cursor.1 -= 1;
-                                    } else {
-                                        res_ref.read().unwrap().scroll_up(1);
-                                    }
-                                }
                             }
                         }
-                        KeyCode::Down => {
-                            let mode = res_ref.read().unwrap().mode;
-                            match mode {
-                                EditorMode::Command => {
+                    }
+                    KeyCode::Down => {
+                        let mode = res_ref.read().unwrap().mode;
+                        match mode {
+                            EditorMode::Command => {
+                                res_ref.read().unwrap().scroll_down(1);
+                            }
+                            EditorMode::Edit => {
+                                if res_ref.read().unwrap().cursor.1 < contsize.1 - 1 {
+                                    res_ref.write().unwrap().cursor.1 += 1;
+                                } else {
                                     res_ref.read().unwrap().scroll_down(1);
                                 }
-                                EditorMode::Edit => {
-                                    if res_ref.read().unwrap().cursor.1 < contsize.1 {
-                                        res_ref.write().unwrap().cursor.1 += 1;
-                                    } else {
-                                        res_ref.read().unwrap().scroll_down(1);
-                                    }
-                                }
                             }
                         }
-                        KeyCode::Left => {
-                            let mode = res_ref.read().unwrap().mode;
-                            match mode {
-                                EditorMode::Command => {
+                    }
+                    KeyCode::Left => {
+                        let mode = res_ref.read().unwrap().mode;
+                        match mode {
+                            EditorMode::Command => {
+                                res_ref.read().unwrap().scroll_left(1);
+                            }
+                            EditorMode::Edit => {
+                                if res_ref.read().unwrap().cursor.0 > 0 {
+                                    res_ref.write().unwrap().cursor.0 -= 1;
+                                } else {
                                     res_ref.read().unwrap().scroll_left(1);
                                 }
-                                EditorMode::Edit => {
-                                    if res_ref.read().unwrap().cursor.0 > 0 {
-                                        res_ref.write().unwrap().cursor.0 -= 1;
-                                    } else {
-                                        res_ref.read().unwrap().scroll_left(1);
-                                    }
-                                }
                             }
                         }
-                        KeyCode::Right => {
-                            let mode = res_ref.read().unwrap().mode;
-                            match mode {
-                                EditorMode::Command => {
+                    }
+                    KeyCode::Right => {
+                        let mode = res_ref.read().unwrap().mode;
+                        match mode {
+                            EditorMode::Command => {
+                                res_ref.read().unwrap().scroll_right(1);
+                            }
+                            EditorMode::Edit => {
+                                if res_ref.read().unwrap().cursor.0 < contsize.0 - 1 {
+                                    res_ref.write().unwrap().cursor.0 += 1;
+                                } else {
                                     res_ref.read().unwrap().scroll_right(1);
                                 }
-                                EditorMode::Edit => {
-                                    if res_ref.read().unwrap().cursor.0 < contsize.0 - 1 {
-                                        res_ref.write().unwrap().cursor.0 += 1;
-                                    } else {
-                                        res_ref.read().unwrap().scroll_right(1);
-                                    }
-                                }
                             }
                         }
-                        _ => (),
                     }
-                }
+                    KeyCode::Esc => {
+                        res_ref.write().unwrap().mode = EditorMode::Command;
+                    }
+                    KeyCode::Char('e') => {
+                        res_ref.write().unwrap().mode = EditorMode::Edit;
+                    }
+                    _ => (),
+                },
                 _ => (),
             }));
         res
@@ -268,7 +271,7 @@ impl Component for Editor {
             renderer.set_section(0, 0, title.dark_red().on_dark_blue());
         }
         // 内容
-        let mut cursor_loc = (0, 1);
+        let mut cursor_loc = self.cursor;
         if size.0 > 1 && size.1 > 1 {
             let mut linen = 1;
             if let Some(file) = &self.file {
@@ -299,15 +302,27 @@ impl Component for Editor {
                             &mut iter::repeat(' ').take(size.0 - rawl).collect::<Vec<char>>(),
                         );
                     }
-                    renderer.set_section(
-                        0,
-                        linen,
-                        displaying.iter().collect::<String>().on(Color::Rgb {
-                            r: 0x10,
-                            g: 0x10,
-                            b: 0x20,
-                        }),
-                    );
+                    if linen == self.cursor.1 {
+                        renderer.set_section(
+                            0,
+                            linen,
+                            displaying.iter().collect::<String>().on(Color::Rgb {
+                                r: 0x38,
+                                g: 0x38,
+                                b: 0x58,
+                            }),
+                        );
+                    } else {
+                        renderer.set_section(
+                            0,
+                            linen,
+                            displaying.iter().collect::<String>().on(Color::Rgb {
+                                r: 0x10,
+                                g: 0x10,
+                                b: 0x20,
+                            }),
+                        );
+                    }
                     linen += 1;
                 }
             }
