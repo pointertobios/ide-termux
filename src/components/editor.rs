@@ -8,7 +8,7 @@ use std::{
     io::{BufRead, BufReader},
     iter,
     process::exit,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 use tokio::sync::{mpsc::Receiver, RwLock as AsyncRwLock};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
@@ -38,6 +38,7 @@ pub struct Editor {
     ///
     /// 总是渲染管道中最新发送的Editing对象
     file_open_receiver: Arc<AsyncRwLock<Receiver<PipeObject>>>,
+    last_rh: Arc<Mutex<usize>>,
     cursor: (usize, usize),
 }
 
@@ -51,6 +52,7 @@ impl Editor {
             file: None,
             mode: EditorMode::Command,
             file_open_receiver: NamedPipe::open_receiver(format!("FileOpen{}", id)),
+            last_rh: Arc::new(Mutex::new(0)),
             cursor: (0, 1),
         }));
         res.read()
@@ -94,7 +96,11 @@ impl Editor {
                             }
                             EditorMode::Edit => {
                                 if res_ref.read().unwrap().cursor.1 < contsize.1 - 1 {
-                                    res_ref.write().unwrap().cursor.1 += 1;
+                                    if res_ref.read().unwrap().cursor.1
+                                        < *res_ref.read().unwrap().last_rh.lock().unwrap() - 1
+                                    {
+                                        res_ref.write().unwrap().cursor.1 += 1;
+                                    }
                                 } else {
                                     res_ref.read().unwrap().scroll_down(1);
                                 }
@@ -123,8 +129,16 @@ impl Editor {
                                 res_ref.read().unwrap().scroll_right(1);
                             }
                             EditorMode::Edit => {
-                                if res_ref.read().unwrap().cursor.0 < contsize.0 - 1 {
-                                    res_ref.write().unwrap().cursor.0 += 1;
+                                let cursor = res_ref.read().unwrap().cursor;
+                                if cursor.0 < contsize.0 - 1 {
+                                    let l = if let Some(f) = &res_ref.read().unwrap().file {
+                                        f.blocking_read().len_of_line(cursor.1)
+                                    } else {
+                                        0
+                                    };
+                                    if cursor.0 <= l {
+                                        res_ref.write().unwrap().cursor.0 += 1;
+                                    }
                                 } else {
                                     res_ref.read().unwrap().scroll_right(1);
                                 }
@@ -297,13 +311,6 @@ impl Component for Editor {
                         rawl += UnicodeWidthChar::width(ch).unwrap();
                         displaying.push(ch);
                     }
-		    let linelen = line.len();
-		    if linen == cursor_loc.1 && linelen < cursor_loc.0 {
-			cursor_loc.0 = linelen;
-		    }
-		    let linestr = linelen.to_string();
-		    rawl += UnicodeWidthStr::width(linestr.as_str());
-		    displaying.append(&mut linestr.chars().collect::<Vec<_>>());
                     if rawl < size.0 {
                         displaying.append(
                             &mut iter::repeat(' ').take(size.0 - rawl).collect::<Vec<char>>(),
@@ -333,6 +340,7 @@ impl Component for Editor {
                     linen += 1;
                 }
             }
+            *self.last_rh.lock().unwrap() = linen;
             while linen < size.1 {
                 let l = iter::repeat(' ').take(size.0).collect::<Vec<_>>();
                 let l = String::from_iter(&mut l.iter());
@@ -392,11 +400,11 @@ impl Editing {
     }
 
     pub fn len_of_line(&self, line: usize) -> usize {
-	if let Some(l) = self.buffer.get(&line) {
-	    line.len()
-	} else {
-	    0
-	}
+        if let Some(l) = self.buffer.get(&line) {
+            l.len()
+        } else {
+            0
+        }
     }
 
     pub fn get(&mut self) -> Vec<LineDiff> {
@@ -491,6 +499,6 @@ impl LineDiff {
     }
 
     pub fn len(&self) -> usize {
-	UnicodeWidthStr::width(String::from_iter(self.origin_content.iter()).as_str())
+        UnicodeWidthStr::width(String::from_iter(self.origin_content.iter()).as_str())
     }
 }
