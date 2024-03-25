@@ -109,12 +109,26 @@ impl Editor {
                     }
                     KeyCode::Left => {
                         let mode = res_ref.read().unwrap().mode;
+                        let cursor = res_ref.read().unwrap().cursor;
                         match mode {
                             EditorMode::Command => {
                                 res_ref.read().unwrap().scroll_left(1);
+                                if cursor.0 < contsize.0 {
+                                    res_ref.write().unwrap().cursor.0 += 2;
+                                }
                             }
                             EditorMode::Edit => {
-                                if res_ref.read().unwrap().cursor.0 > 0 {
+                                if cursor.0 > 0 {
+                                    let l = if let Some(f) = &res_ref.read().unwrap().file {
+                                        let shst = f.blocking_read().showing_start;
+                                        let lnst = f.blocking_read().line_start;
+                                        f.blocking_read().len_of_line(shst + cursor.1 - 1) - lnst
+                                    } else {
+                                        0
+                                    };
+                                    if cursor.0 > l {
+                                        res_ref.write().unwrap().cursor.0 = l;
+                                    }
                                     res_ref.write().unwrap().cursor.0 -= 1;
                                 } else {
                                     res_ref.read().unwrap().scroll_left(1);
@@ -124,23 +138,32 @@ impl Editor {
                     }
                     KeyCode::Right => {
                         let mode = res_ref.read().unwrap().mode;
+                        let cursor = res_ref.read().unwrap().cursor;
                         match mode {
                             EditorMode::Command => {
                                 res_ref.read().unwrap().scroll_right(1);
+                                if cursor.0 > 0 {
+                                    res_ref.write().unwrap().cursor.0 -= 2;
+                                }
                             }
                             EditorMode::Edit => {
-                                let cursor = res_ref.read().unwrap().cursor;
+                                let l = if let Some(f) = &res_ref.read().unwrap().file {
+                                    let shst = f.blocking_read().showing_start;
+                                    let lnst = f.blocking_read().line_start;
+                                    f.blocking_read().len_of_line(shst + cursor.1 - 1) - lnst
+                                } else {
+                                    0
+                                };
                                 if cursor.0 < contsize.0 - 1 {
-                                    let l = if let Some(f) = &res_ref.read().unwrap().file {
-                                        f.blocking_read().len_of_line(cursor.1)
-                                    } else {
-                                        0
-                                    };
-                                    if cursor.0 <= l {
+                                    if cursor.0 < l {
                                         res_ref.write().unwrap().cursor.0 += 1;
                                     }
                                 } else {
-                                    res_ref.read().unwrap().scroll_right(1);
+                                    if let Some(f) = &res_ref.read().unwrap().file {
+                                        if cursor.0 < l - 1 {
+                                            res_ref.read().unwrap().scroll_right(1);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -292,6 +315,10 @@ impl Component for Editor {
                 file.blocking_write().showing_length = size.1;
                 let lnst = file.blocking_read().line_start;
                 for line in file.blocking_write().get() {
+                    let linelen = line.len();
+                    if linen == cursor_loc.1 && cursor_loc.0 > linelen {
+                        cursor_loc.0 = linelen - lnst;
+                    }
                     let mut lining = line.origin_content.clone();
                     if !lining.is_empty() && *lining.last().unwrap() == '\n' {
                         lining.pop();
