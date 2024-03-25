@@ -74,99 +74,16 @@ impl Editor {
                     ..
                 }) => match code {
                     KeyCode::Up => {
-                        let mode = res_ref.read().unwrap().mode;
-                        match mode {
-                            EditorMode::Command => {
-                                res_ref.read().unwrap().scroll_up(1);
-                            }
-                            EditorMode::Edit => {
-                                if res_ref.read().unwrap().cursor.1 > 1 {
-                                    res_ref.write().unwrap().cursor.1 -= 1;
-                                } else {
-                                    res_ref.read().unwrap().scroll_up(1);
-                                }
-                            }
-                        }
+                        res_ref.write().unwrap().cursor_up(contsize);
                     }
                     KeyCode::Down => {
-                        let mode = res_ref.read().unwrap().mode;
-                        match mode {
-                            EditorMode::Command => {
-                                res_ref.read().unwrap().scroll_down(1);
-                            }
-                            EditorMode::Edit => {
-                                if res_ref.read().unwrap().cursor.1 < contsize.1 - 1 {
-                                    if res_ref.read().unwrap().cursor.1
-                                        < *res_ref.read().unwrap().last_rh.lock().unwrap() - 1
-                                    {
-                                        res_ref.write().unwrap().cursor.1 += 1;
-                                    }
-                                } else {
-                                    res_ref.read().unwrap().scroll_down(1);
-                                }
-                            }
-                        }
+                        res_ref.write().unwrap().cursor_down(contsize);
                     }
                     KeyCode::Left => {
-                        let mode = res_ref.read().unwrap().mode;
-                        let cursor = res_ref.read().unwrap().cursor;
-                        match mode {
-                            EditorMode::Command => {
-                                res_ref.read().unwrap().scroll_left(1);
-                                if cursor.0 < contsize.0 {
-                                    res_ref.write().unwrap().cursor.0 += if cursor.0 + 1 == contsize.0 { 1 } else { 2 };
-                                }
-                            }
-                            EditorMode::Edit => {
-                                if cursor.0 > 0 {
-                                    let l = if let Some(f) = &res_ref.read().unwrap().file {
-                                        let shst = f.blocking_read().showing_start;
-                                        let lnst = f.blocking_read().line_start;
-                                        f.blocking_read().len_of_line(shst + cursor.1 - 1) - lnst
-                                    } else {
-                                        0
-                                    };
-                                    if cursor.0 > l {
-                                        res_ref.write().unwrap().cursor.0 = l;
-                                    }
-                                    res_ref.write().unwrap().cursor.0 -= 1;
-                                } else {
-                                    res_ref.read().unwrap().scroll_left(1);
-                                }
-                            }
-                        }
+                        res_ref.write().unwrap().cursor_left(contsize);
                     }
                     KeyCode::Right => {
-                        let mode = res_ref.read().unwrap().mode;
-                        let cursor = res_ref.read().unwrap().cursor;
-                        match mode {
-                            EditorMode::Command => {
-                                res_ref.read().unwrap().scroll_right(1);
-                                if cursor.0 > 0 {
-                                    res_ref.write().unwrap().cursor.0 -= if cursor.0 == 1 { 1 } else { 2 };
-                                }
-                            }
-                            EditorMode::Edit => {
-                                let l = if let Some(f) = &res_ref.read().unwrap().file {
-                                    let shst = f.blocking_read().showing_start;
-                                    let lnst = f.blocking_read().line_start;
-                                    f.blocking_read().len_of_line(shst + cursor.1 - 1) - lnst
-                                } else {
-                                    0
-                                };
-                                if cursor.0 < contsize.0 - 1 {
-                                    if cursor.0 < l {
-                                        res_ref.write().unwrap().cursor.0 += 1;
-                                    }
-                                } else {
-                                    if let Some(f) = &res_ref.read().unwrap().file {
-                                        if cursor.0 < l - 1 {
-                                            res_ref.read().unwrap().scroll_right(1);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        res_ref.write().unwrap().cursor_right(contsize);
                     }
                     KeyCode::Esc => {
                         res_ref.write().unwrap().mode = EditorMode::Command;
@@ -179,6 +96,101 @@ impl Editor {
                 _ => (),
             }));
         res
+    }
+
+    fn cursor_up(&mut self, _contsize: (usize, usize)) {
+        match self.mode {
+            EditorMode::Command => {
+                self.scroll_up(1);
+            }
+            EditorMode::Edit => {
+                if self.cursor.1 > 1 {
+                    self.cursor.1 -= 1;
+                } else {
+                    self.scroll_up(1);
+                }
+            }
+        }
+    }
+
+    fn cursor_down(&mut self, contsize: (usize, usize)) {
+        match self.mode {
+            EditorMode::Command => {
+                self.scroll_down(1);
+            }
+            EditorMode::Edit => {
+                if self.cursor.1 < contsize.1 - 1 {
+                    if self.cursor.1 + 1 < *self.last_rh.lock().unwrap() - 1 {
+                        self.cursor.1 += 1;
+                    }
+                } else {
+                    self.scroll_down(1);
+                }
+            }
+        }
+    }
+
+    fn cursor_left(&mut self, contsize: (usize, usize)) {
+        match self.mode {
+            EditorMode::Command => {
+                self.scroll_left(1);
+                if self.cursor.0 < contsize.0 {
+                    self.cursor.0 += if self.cursor.0 + 1 == contsize.0 {
+                        1
+                    } else {
+                        2
+                    };
+                }
+            }
+            EditorMode::Edit => {
+                if self.cursor.0 > 0 {
+                    let l = if let Some(f) = &self.file {
+                        let shst = f.blocking_read().showing_start;
+                        let lnst = f.blocking_read().line_start;
+                        f.blocking_read().len_of_line(shst + self.cursor.1 - 1) - lnst
+                    } else {
+                        0
+                    };
+                    if self.cursor.0 > l {
+                        self.cursor.0 = l;
+                    }
+                    self.cursor.0 -= 1;
+                } else {
+                    self.scroll_left(1);
+                }
+            }
+        }
+    }
+
+    fn cursor_right(&mut self, contsize: (usize, usize)) {
+        match self.mode {
+            EditorMode::Command => {
+                self.scroll_right(1);
+                if self.cursor.0 > 0 {
+                    self.cursor.0 -= if self.cursor.0 == 1 { 1 } else { 2 };
+                }
+            }
+            EditorMode::Edit => {
+                let l = if let Some(f) = &self.file {
+                    let shst = f.blocking_read().showing_start;
+                    let lnst = f.blocking_read().line_start;
+                    f.blocking_read().len_of_line(shst + self.cursor.1 - 1) - lnst
+                } else {
+                    0
+                };
+                if self.cursor.0 < contsize.0 - 1 {
+                    if self.cursor.0 < l {
+                        self.cursor.0 += 1;
+                    }
+                } else {
+                    if let Some(f) = &self.file {
+                        if self.cursor.0 < l - 1 {
+                            self.scroll_right(1);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn scroll_up(&self, count: usize) {
@@ -317,11 +329,11 @@ impl Component for Editor {
                 for line in file.blocking_write().get() {
                     let linelen = line.len();
                     if linen == cursor_loc.1 {
-			if linelen > lnst && cursor_loc.0 > linelen - lnst {
+                        if linelen > lnst && cursor_loc.0 > linelen - lnst {
                             cursor_loc.0 = linelen - lnst;
-			} else if linelen <= lnst && cursor_loc.0 > 0 {
-			    cursor_loc.0 = 0;
-			}
+                        } else if linelen <= lnst && cursor_loc.0 > 0 {
+                            cursor_loc.0 = 0;
+                        }
                     }
                     let mut lining = line.origin_content.clone();
                     if !lining.is_empty() && *lining.last().unwrap() == '\n' {
