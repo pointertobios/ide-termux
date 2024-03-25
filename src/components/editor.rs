@@ -114,7 +114,7 @@ impl Editor {
                             EditorMode::Command => {
                                 res_ref.read().unwrap().scroll_left(1);
                                 if cursor.0 < contsize.0 {
-                                    res_ref.write().unwrap().cursor.0 += 2;
+                                    res_ref.write().unwrap().cursor.0 += if cursor.0 + 1 == contsize.0 { 1 } else { 2 };
                                 }
                             }
                             EditorMode::Edit => {
@@ -143,7 +143,7 @@ impl Editor {
                             EditorMode::Command => {
                                 res_ref.read().unwrap().scroll_right(1);
                                 if cursor.0 > 0 {
-                                    res_ref.write().unwrap().cursor.0 -= 2;
+                                    res_ref.write().unwrap().cursor.0 -= if cursor.0 == 1 { 1 } else { 2 };
                                 }
                             }
                             EditorMode::Edit => {
@@ -316,8 +316,12 @@ impl Component for Editor {
                 let lnst = file.blocking_read().line_start;
                 for line in file.blocking_write().get() {
                     let linelen = line.len();
-                    if linen == cursor_loc.1 && cursor_loc.0 > linelen {
-                        cursor_loc.0 = linelen - lnst;
+                    if linen == cursor_loc.1 {
+			if linelen > lnst && cursor_loc.0 > linelen - lnst {
+                            cursor_loc.0 = linelen - lnst;
+			} else if linelen <= lnst && cursor_loc.0 > 0 {
+			    cursor_loc.0 = 0;
+			}
                     }
                     let mut lining = line.origin_content.clone();
                     if !lining.is_empty() && *lining.last().unwrap() == '\n' {
