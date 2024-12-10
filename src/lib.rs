@@ -106,9 +106,7 @@ pub fn run() -> std::io::Result<()> {
                 code,
                 state,
             }) => {
-                if modifiers.contains(KeyModifiers::CONTROL)
-                    && modifiers.contains(KeyModifiers::ALT)
-                {
+                if modifiers.contains(KeyModifiers::CONTROL) {
                     match code {
                         KeyCode::Char('d') => {
                             break;

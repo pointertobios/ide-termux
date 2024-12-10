@@ -25,7 +25,7 @@ pub struct NamedPipe {
 
 impl NamedPipe {
     pub fn open_sender(name: String) -> Arc<RwLock<Sender<PipeObject>>> {
-        if { PIPECTL.blocking_read().map.contains_key(&name) } {
+        if PIPECTL.blocking_read().map.contains_key(&name) {
             Arc::clone(&PIPECTL.blocking_read().map.get(&name).unwrap().0)
         } else {
             let (sender, receiver) = mpsc::channel(4);
@@ -39,7 +39,7 @@ impl NamedPipe {
     }
 
     pub fn open_receiver(name: String) -> Arc<RwLock<Receiver<PipeObject>>> {
-        if { PIPECTL.blocking_read().map.contains_key(&name) } {
+        if PIPECTL.blocking_read().map.contains_key(&name) {
             Arc::clone(&PIPECTL.blocking_read().map.get(&name).unwrap().1)
         } else {
             let (sender, receiver) = mpsc::channel(4);

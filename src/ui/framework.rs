@@ -59,7 +59,7 @@ impl Framework {
 
     pub fn render(&mut self) {
         let mut stdout = std::io::stdout();
-        queue!(stdout, cursor::Hide);
+        queue!(stdout, cursor::Hide).unwrap();
         if let Some(container) = &self.container {
             let renderer = Renderer::new(0, 0, self.width, self.height);
             let location = container.read().unwrap().render(&renderer);
